@@ -14,7 +14,7 @@ const DEFAULTS = {
   showSec: true,               // 显示秒
   bgMode: 'play',              // play=播放视频 / pause=冻结静态
   scale: 1,                    // 界面缩放
-  musicApi: 'http://127.0.0.1:16311',  // 网易云 API 代理（tools/netease-api）
+  musicApi: 'http://127.0.0.1:16311',  // 本机 Music Bridge（tools/netease-api）
   musicCookie: '',             // 网易云 Cookie（MUSIC_U，VIP 用；可空）
 };
 
@@ -438,9 +438,10 @@ function openSettings() {
   $('setShowSec').checked = settings.showSec;
   $('setBg').value = settings.bgMode;
   $('setScale').value = settings.scale;
-  $('setMusicApi').value = settings.musicApi;
   $('setMusicCookie').value = settings.musicCookie;
+  $('btnManageMusicBridge').href = apiBase() + '/manage';
   settingsMask.hidden = false;
+  refreshMusicBridgeStatus();
 }
 
 function closeSettings() {
@@ -490,13 +491,152 @@ $('setScale').addEventListener('input', (e) => {
   settings.scale = Number(e.target.value);
   saveSettings(); applySettings();
 });
-$('setMusicApi').addEventListener('input', (e) => {
-  settings.musicApi = e.target.value.trim() || DEFAULTS.musicApi;
-  saveSettings();
-});
 $('setMusicCookie').addEventListener('input', (e) => {
   settings.musicCookie = e.target.value.trim();
   saveSettings();
+});
+
+let musicBridgeCookieConfigured = false;
+function updateMusicCookiePlaceholder() {
+  $('setMusicCookie').placeholder = musicBridgeCookieConfigured
+    ? '已保存到 Music Bridge'
+    : 'MUSIC_U 的值；可留空';
+}
+
+async function readClipboardTextFromUserGesture(input) {
+  if (window.clipboardData && typeof window.clipboardData.getData === 'function') {
+    return { allowed: true, text: window.clipboardData.getData('Text') || '' };
+  }
+
+  // Older WebView builds may allow the legacy paste command even when the
+  // asynchronous Clipboard API is unavailable in a file:// wallpaper.
+  const previous = input.value;
+  let pastedText = '';
+  const capturePaste = (event) => {
+    if (event.clipboardData) pastedText = event.clipboardData.getData('text/plain') || '';
+  };
+  input.addEventListener('paste', capturePaste, { once: true });
+  input.focus();
+  input.select();
+  try {
+    if (typeof document.execCommand === 'function' && document.execCommand('paste')) {
+      await Promise.resolve();
+      return { allowed: true, text: pastedText || (input.value !== previous ? input.value : '') };
+    }
+  } catch { /* Continue with the modern API. */ }
+  input.removeEventListener('paste', capturePaste);
+  if (input.value !== previous) return { allowed: true, text: input.value };
+
+  if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+    try {
+      return { allowed: true, text: await navigator.clipboard.readText() };
+    } catch { /* Lively/WebView may deny clipboard-read permission. */ }
+  }
+  return { allowed: false, text: '' };
+}
+
+$('btnPasteMusicCookie').addEventListener('click', async () => {
+  const input = $('setMusicCookie');
+  const result = await readClipboardTextFromUserGesture(input);
+  if (!result.allowed) {
+    try {
+      const response = await fetch(apiBase() + '/cookie/paste', {
+        method: 'POST', cache: 'no-store',
+      });
+      const body = await response.json();
+      if (!response.ok || !body.ok) throw new Error(body.message || '粘贴失败');
+      input.value = '';
+      settings.musicCookie = '';
+      musicBridgeCookieConfigured = true;
+      updateMusicCookiePlaceholder();
+      saveSettings();
+      toast(body.message || 'Cookie 已粘贴');
+    } catch (error) {
+      input.focus();
+      input.select();
+      toast(error.message || '请按 Ctrl+V，或在 Lively 自定义中填写');
+    }
+    return;
+  }
+  const value = String(result.text || '').trim();
+  if (!value) {
+    toast('剪贴板是空的');
+    return;
+  }
+  input.value = value;
+  settings.musicCookie = value;
+  saveSettings();
+  toast('Cookie 已粘贴');
+});
+$('btnClearMusicCookie').addEventListener('click', async () => {
+  $('setMusicCookie').value = '';
+  settings.musicCookie = '';
+  musicBridgeCookieConfigured = false;
+  updateMusicCookiePlaceholder();
+  saveSettings();
+  try {
+    await fetch(apiBase() + '/cookie/clear', { method: 'POST', cache: 'no-store' });
+  } catch { /* Local value is still cleared while the bridge is offline. */ }
+  toast('Cookie 已清空');
+});
+$('btnTestMusicCookie').addEventListener('click', async () => {
+  const cookie = settings.musicCookie.trim();
+  if (!cookie && !musicBridgeCookieConfigured) {
+    toast('请先填写 MUSIC_U');
+    return;
+  }
+  toast('正在验证 Cookie…');
+  try {
+    const response = await fetch(apiBase() + '/login/status?t=' + Date.now() + cookieParam(),
+      { cache: 'no-store' });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body && body.message || '验证失败');
+    const profile = body && body.data && body.data.profile;
+    if (!profile) {
+      toast('Cookie 无效或已过期');
+      return;
+    }
+    toast('已登录：' + (profile.nickname || profile.userId));
+  } catch {
+    toast('无法验证，请检查 Music Bridge');
+  }
+});
+
+let musicBridgeOnline = false;
+function renderMusicBridgeState(state, text) {
+  const el = $('musicBridgeState');
+  el.className = 'bridge-state ' + state;
+  el.querySelector('span').textContent = text;
+  $('btnManageMusicBridge').classList.toggle('disabled', state !== 'online');
+  musicBridgeOnline = state === 'online';
+}
+
+async function refreshMusicBridgeStatus(notify = false) {
+  renderMusicBridgeState('checking', '检测中');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2200);
+  try {
+    const response = await fetch(apiBase() + '/health?t=' + Date.now(),
+      { cache: 'no-store', signal: controller.signal });
+    const body = await response.json();
+    if (!response.ok || !body.ok) throw new Error('Not ready');
+    musicBridgeCookieConfigured = Boolean(body.cookieConfigured);
+    updateMusicCookiePlaceholder();
+    renderMusicBridgeState('online', '已连接 ' + body.version);
+    if (notify) toast('Music Bridge 运行正常');
+  } catch {
+    renderMusicBridgeState('offline', '未连接');
+    if (notify) toast('请运行 wallpaper11-music-setup.exe');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+$('btnCheckMusicBridge').addEventListener('click', () => refreshMusicBridgeStatus(true));
+$('btnManageMusicBridge').addEventListener('click', (event) => {
+  if (musicBridgeOnline) return;
+  event.preventDefault();
+  toast('请先运行 wallpaper11-music-setup.exe');
 });
 $('btnReset').addEventListener('click', () => {
   settings = { ...DEFAULTS };
@@ -586,7 +726,13 @@ window.livelyPropertyListener = function livelyPropertyListener(name, value) {
     case 'backgroundPlayback': settings.bgMode = value ? 'play' : 'pause'; break;
     case 'interfaceScale': settings.scale = Math.min(1.4, Math.max(0.8, Number(value) / 100 || 1)); break;
     case 'musicApi': settings.musicApi = String(value || DEFAULTS.musicApi); break;
-    case 'musicCookie': settings.musicCookie = String(value || ''); break;
+    case 'musicCookie': {
+      const nextCookie = String(value || '').trim();
+      // An empty Lively property is the default, not necessarily an explicit clear.
+      // Keep a Cookie entered inside the wallpaper unless Lively supplies a value.
+      if (nextCookie || !settings.musicCookie) settings.musicCookie = nextCookie;
+      break;
+    }
     case 'lively_default_settings_reload': settings = { ...DEFAULTS }; break;
     default: return;
   }

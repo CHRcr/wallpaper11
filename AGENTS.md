@@ -44,13 +44,15 @@
 - 本机歌单由 `tools/prepare-lively-media.js` 生成，支持子目录、同名 LRC、UTF-8 与 GBK 歌词。
 - `tools/package-lively.ps1` 输出 `dist/wallpaper11-lively.zip`，Lively 元数据位于 zip 根目录。
 - GitHub Actions 只做 Lively 项目静态检查，不构建 EXE，也不发布 Release。
+- 网易云使用自包含的本机 Music Bridge，只开放壁纸需要的接口并监听 `127.0.0.1:16311`；`npm run music:package` 生成无需 Node/npm 的单文件安装包，安装到当前用户目录并静默登录自启。
+- 壁纸设置页负责 Music Bridge 状态、Cookie 验证和本机管理入口；由于浏览器沙箱限制，首次安装仍由用户双击安装包确认。
 
 ## 四、待办
 
 1. 等用户提供完整 3500 词库，转为可在 `file://` 环境加载的本地数据，同时保留内嵌兜底。
 2. 在 Lively/Windows 11/希沃实机验证触屏、桌面输入、WebView2 MP4、IndexedDB 和“其他应用获得焦点时暂停”。
 3. 根据实机结果调整 Lively 的鼠标/键盘输入说明；默认只要求鼠标输入，文本输入需要用户开启壁纸键盘输入或从 Lively 自定义面板填写。
-4. 网易云搜索继续依赖 `tools/netease-api/start.bat`，以后可做独立轻量代理，但不要重新引入桌面嵌入宿主。
+4. 在希沃实机验证 Music Bridge 的安装、登录自启、MUSIC_U 和网络异常提示；不要重新引入桌面嵌入宿主。
 
 ## 五、协作约定
 
@@ -67,5 +69,5 @@
 - Lively `folderDropdown` 只扫描入口 HTML 下的指定目录，不递归；音乐子目录由项目脚本扫描。
 - Lively 属性是单向通知，壁纸内修改不会反写 `LivelyProperties.json`；重新加载时以 Lively 保存的属性为准。
 - Lively 默认启用鼠标输入；输入文字需要在 Lively 中开启壁纸键盘输入，或直接使用 Lively 自定义面板。
-- 网易云官方 API 没有 CORS，必须走本地 NeteaseCloudMusicApi；不要在浏览器里手动设置 Cookie 请求头。
+- 网易云官方 API 没有 CORS，必须走本地 Music Bridge；不要在浏览器里手动设置 Cookie 请求头。
 - PowerShell 5.1 对无 BOM UTF-8 脚本兼容较差；`package-lively.ps1` 保持 ASCII 内容。

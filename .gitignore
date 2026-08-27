@@ -10,6 +10,7 @@
 
 # 第三方依赖
 tools/netease-api/node_modules/
+tools/netease-api/bridge.pid
 node_modules/
 /dist/
 *.log

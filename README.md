@@ -11,13 +11,13 @@
 - 高考 3500 词随机淡入淡出卡片（当前为示例词库）
 - 低调工具栏，以及右上角音乐播放器、今日作业和设置面板
 - 本机音乐歌单、同名 LRC 歌词、循环/随机、触屏进度条
-- 网易云搜索（需运行本地 NeteaseCloudMusicApi）
+- 网易云搜索（通过可安装的本机 Music Bridge）
 - Lively 自定义属性：背景视频、作业图片、时钟、倒计时、缩放和音乐 API
 - Lively 暂停壁纸时同步暂停背景视频与音乐
 
 ## 导入 Lively
 
-需要 Node.js 18 或更高版本，仅用于整理本机媒体和打包；壁纸运行时不需要 Node.js。
+构建项目需要 Node.js 18 或更高版本。导入完成后，壁纸本身不需要 Node.js；网易云组件的正式安装包也自带运行环境。
 
 1. 把背景视频放入 `local-video/`，音乐和同名 `.lrc` 放入 `local-music/`。
 2. 在项目根目录运行：
@@ -58,9 +58,52 @@ npm run check
 
 该命令验证 Lively 元数据、属性定义和 JavaScript 语法，不进行原生编译。
 
-## 网易云代理
+## 网易云 Music Bridge
 
-代理位于 `tools/netease-api/`，运行 `start.bat` 后监听 `127.0.0.1:16311`。VIP 歌曲可在壁纸设置或 Lively 自定义面板中填写 `MUSIC_U`。
+网易云网页接口不允许 Lively 壁纸直接跨域调用，因此项目带有一个本机桥接组件。它基于维护中的 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)，只监听 `127.0.0.1:16311`，并且只开放搜索、歌曲地址、歌词和健康检查四个接口。
+
+普通使用者双击安装包即可，不需要 Node.js、npm 或管理员权限：
+
+```text
+wallpaper11-music-setup.exe
+```
+
+安装完成后，壁纸设置页会显示连接状态，并可检测组件、验证 Cookie 或打开本机管理页。管理页可查看日志目录和卸载组件，Windows 的「已安装的应用」中也会出现 `wallpaper11 Music Bridge`。
+
+开发环境也可以在项目根目录直接安装：
+
+```powershell
+npm run music:install
+```
+
+安装程序会把组件放到 `%LOCALAPPDATA%\wallpaper11\music-bridge`，立即静默启动，并为当前用户创建登录启动项；不会弹出常驻终端。重装或升级时再次运行安装包即可。
+
+检查状态或卸载：
+
+```powershell
+npm run music:status
+npm run music:uninstall
+```
+
+诊断日志位于 `%LOCALAPPDATA%\wallpaper11\music-bridge.log`。开发时也可以双击 `tools/netease-api/start.bat` 在前台查看输出。VIP 或需登录的歌曲可在壁纸设置或 Lively 自定义面板中填写 `MUSIC_U`；壁纸设置提供粘贴、验证和清空按钮。如果 Lively WebView 拒绝网页剪贴板权限，粘贴按钮会让本机 Bridge 读取 Windows 剪贴板，并将 `MUSIC_U` 保存在当前用户的 `%LOCALAPPDATA%\wallpaper11\music-cookie.txt`；清空 Cookie 或卸载 Bridge 时会删除该文件。Cookie 不会由本项目保存到远端。
+
+工作链路是：`Lively 壁纸 -> 127.0.0.1 Music Bridge -> 网易云接口 -> 播放地址/歌词 -> 壁纸播放器`。Music Bridge 只负责翻译请求，实际音频仍由壁纸中的浏览器音频元素播放，所以 Lively 暂停壁纸时，音乐也能沿用现有逻辑一起暂停。
+
+生成自包含安装包：
+
+```powershell
+npm run music:package
+```
+
+产物为 `dist/wallpaper11-music-setup.exe`。它包含精简的 Node 运行时和 Music Bridge 依赖，因此文件会比网页壁纸大。安装包未做商业代码签名，Windows SmartScreen 首次运行时可能要求确认。
+
+如果要一次准备 U 盘内容，运行：
+
+```powershell
+npm run portable
+```
+
+生成的 `dist/wallpaper11-usb/` 同时包含 Lively 壁纸 ZIP、Music Bridge 安装包和简要说明。
 
 ## 目录
 
@@ -77,8 +120,9 @@ wallpaper11/
 ├─ tools/
 │  ├─ prepare-lively-media.js   同步媒体并生成歌单
 │  ├─ package-lively.ps1        生成 Lively zip
+│  ├─ package-usb.ps1           生成 U 盘目录
 │  ├─ check-lively.js           项目静态检查
-│  └─ netease-api/              网易云本地代理
+│  └─ netease-api/              Music Bridge 与单文件安装包脚本
 └─ AGENTS.md                    项目决策与交接档案
 ```
 

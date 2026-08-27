@@ -6,6 +6,11 @@
     "dev": "node tools/dev-server.js",
     "media": "node tools/prepare-lively-media.js",
     "check": "node tools/check-lively.js",
-    "package": "powershell -ExecutionPolicy Bypass -File tools/package-lively.ps1"
+    "package": "powershell -ExecutionPolicy Bypass -File tools/package-lively.ps1",
+    "music:install": "powershell -ExecutionPolicy Bypass -File tools/netease-api/install.ps1",
+    "music:package": "powershell -ExecutionPolicy Bypass -File tools/netease-api/build-installer.ps1",
+    "music:status": "powershell -ExecutionPolicy Bypass -File tools/netease-api/status.ps1",
+    "music:uninstall": "powershell -ExecutionPolicy Bypass -File tools/netease-api/uninstall.ps1",
+    "portable": "powershell -ExecutionPolicy Bypass -File tools/package-usb.ps1"
   }
 }

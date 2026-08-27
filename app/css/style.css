@@ -611,6 +611,75 @@ body.hw-open .toolbar { opacity: 0 !important; pointer-events: none; }
 .field input[type="checkbox"] { width: 19px; height: 19px; accent-color: var(--gold); cursor: pointer; }
 .field input[type="range"]    { width: 190px; accent-color: var(--gold); cursor: pointer; }
 
+.cookie-control {
+  width: 270px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 6px;
+}
+.cookie-control input[type="text"] {
+  width: 100%;
+  min-width: 0;
+}
+.cookie-action {
+  min-width: 44px;
+  height: 44px;
+  padding: 0 9px;
+  border: 1px solid var(--glass-line);
+  border-radius: 10px;
+  background: rgba(255, 240, 220, 0.06);
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s, transform 0.15s;
+}
+.cookie-action:hover,
+.cookie-action:focus-visible {
+  color: var(--ink);
+  border-color: var(--glass-line-hi);
+  background: rgba(255, 240, 220, 0.10);
+  outline: none;
+}
+.cookie-action:active { transform: scale(0.95); }
+
+.bridge-control {
+  width: 270px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+}
+.bridge-state {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.bridge-state i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+.bridge-state.online i { background: #8ee6a3; box-shadow: 0 0 8px rgba(142, 230, 163, 0.65); }
+.bridge-state.offline i { background: #e89797; }
+.bridge-state.checking i { background: var(--gold); animation: bridge-pulse 1s ease-in-out infinite; }
+@keyframes bridge-pulse { 50% { opacity: 0.35; } }
+.bridge-manage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+.bridge-manage.disabled { opacity: 0.42; }
+
 .mini-btn {
   border: 1px solid var(--glass-line);
   background: rgba(255, 240, 220, 0.06);
@@ -1125,4 +1194,11 @@ body.hw-open .toolbar { opacity: 0 !important; pointer-events: none; }
   .mp.drawer-open, .mp.search-open { height: min(520px, calc(100vh - 36px)); }
   .mp-vol-slider { display: none; }
   .panel { max-height: calc(100vh - 24px); }
+}
+
+@media (max-width: 480px) {
+  .cookie-field,
+  .bridge-field { align-items: stretch; flex-direction: column; gap: 7px; }
+  .cookie-control,
+  .bridge-control { width: 100%; }
 }

@@ -145,14 +145,24 @@
           <span class="field-name">界面缩放</span>
           <input type="range" id="setScale" min="0.8" max="1.4" step="0.05">
         </label>
-        <label class="field">
-          <span class="field-name">音乐搜索 API</span>
-          <input type="text" id="setMusicApi" spellcheck="false">
-        </label>
-        <label class="field">
-          <span class="field-name">网易云 Cookie</span>
-          <input type="text" id="setMusicCookie" placeholder="MUSIC_U 的值；可留空" spellcheck="false">
-        </label>
+        <div class="field bridge-field">
+          <span class="field-name">Music Bridge</span>
+          <div class="bridge-control">
+            <span class="bridge-state checking" id="musicBridgeState"><i></i><span>检测中</span></span>
+            <button class="cookie-action" id="btnCheckMusicBridge" type="button">检测</button>
+            <a class="cookie-action bridge-manage" id="btnManageMusicBridge"
+               href="http://127.0.0.1:16311/manage" target="_blank" rel="noopener noreferrer">管理</a>
+          </div>
+        </div>
+        <div class="field cookie-field">
+          <label class="field-name" for="setMusicCookie">网易云 Cookie</label>
+          <div class="cookie-control">
+            <input type="text" id="setMusicCookie" placeholder="MUSIC_U 的值；可留空" spellcheck="false">
+            <button class="cookie-action" id="btnPasteMusicCookie" type="button" title="从剪贴板粘贴 Cookie">粘贴</button>
+            <button class="cookie-action" id="btnTestMusicCookie" type="button" title="验证 Cookie 是否有效">验证</button>
+            <button class="cookie-action" id="btnClearMusicCookie" type="button" title="清空 Cookie">清空</button>
+          </div>
+        </div>
         <div class="field">
           <span class="field-name">数据</span>
           <button class="mini-btn" id="btnReset">恢复默认设置</button>

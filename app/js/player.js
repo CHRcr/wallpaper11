@@ -36,6 +36,7 @@ let tracks = [];
 let localTracks = [];
 let cur = -1;                 // 当前曲目下标，-1 = 未加载
 let errStreak = 0;            // 连续加载失败计数（防死循环跳歌）
+let playRequest = 0;          // 防止连续点歌时较慢的旧请求覆盖新曲目
 let debugAutoplayPending = new URLSearchParams(location.search).has('autoplay');
 
 function rebuildTracks(keepCur = true) {
@@ -168,15 +169,36 @@ function fmtTime(sec) {
 
 /* ---------- 播放控制 ---------- */
 
-function playIndex(i, autoplay = true) {
+async function playIndex(i, autoplay = true) {
   if (i < 0 || i >= tracks.length) return;
+  const request = ++playRequest;
   cur = i;
   pState.last = i; savePlayerState();
   const t = tracks[i];
-  audio.src = resolveUrl(t.url);
+  audio.pause();
+  audio.removeAttribute('src');
   renderMeta(t);
   renderLrc(t.lrc);
   renderList();
+
+  if (t.ncid) {
+    toast('正在获取网易云播放地址…');
+    try {
+      await refreshNeteaseTrack(t);
+      if (request !== playRequest) return;
+      renderLrc(t.lrc);
+    } catch {
+      if (request !== playRequest) return;
+      if (!t.url) {
+        toast(settings.musicCookie ? 'Cookie 无效或歌曲不可用' : 'VIP 歌曲需要 Cookie');
+        return;
+      }
+      toast('直链刷新失败，尝试缓存地址');
+    }
+  }
+
+  if (request !== playRequest || !t.url) return;
+  audio.src = resolveUrl(t.url);
   if (autoplay) audio.play().catch(() => {});
 }
 
@@ -569,7 +591,7 @@ document.addEventListener('keydown', (e) => {
   if (!musicMask.hidden) closeMusic();
 });
 
-/* ---------- 网易云搜索（经本地 NeteaseCloudMusicApi 代理） ---------- */
+/* ---------- 网易云搜索（经本地 Music Bridge） ---------- */
 
 let searchTimer = null;
 let lastResults = [];
@@ -618,7 +640,7 @@ async function searchNetease(kw) {
         '</div></div>';
     }).join('');
   } catch {
-    mpResults.innerHTML = '<div class="mp-tip">连不上 API 代理<br>先运行 tools/netease-api/start.bat</div>';
+    mpResults.innerHTML = '<div class="mp-tip">Music Bridge 未运行<br>请先完成网易云组件安装</div>';
   }
 }
 
@@ -629,33 +651,53 @@ mpResults.addEventListener('click', (e) => {
   if (song) playNetease(song);
 });
 
-async function playNetease(song) {
-  toast('获取播放地址…');
-  try {
-    const [u, l] = await Promise.all([
-      fetch(apiBase() + '/song/url/v1?id=' + song.id + '&level=lossless' + cookieParam()).then(r => r.json()),
-      fetch(apiBase() + '/lyric?id=' + song.id + cookieParam()).then(r => r.json()).catch(() => null),
-    ]);
-    const d = u.data && u.data[0];
-    if (!d || !d.url) { toast('拿不到播放地址：VIP 歌曲请在设置里填 Cookie'); return; }
-    const track = {
-      name: song.name,
-      artist: (song.ar || []).map(a => a.name).join(' / '),
-      url: d.url.replace(/^http:/, 'https:'),
-      cover: song.al && song.al.picUrl
-        ? song.al.picUrl.replace(/^http:/, 'https:') + '?param=120y120' : '',
-      lrc: (l && l.lrc && l.lrc.lyric) || '',
-      ncid: song.id,
-    };
-    pState.nc = pState.nc.filter(x => x.ncid !== song.id);
-    pState.nc.push({ name: track.name, artist: track.artist, url: track.url,
-      cover: track.cover, lrc: track.lrc, ncid: track.ncid });
+async function fetchNeteaseMedia(id) {
+  const urlRequest = fetch(apiBase() + '/song/url/v1?id=' + id +
+    '&level=lossless' + cookieParam()).then(async (response) => {
+    const body = await response.json();
+    if (!response.ok) throw new Error(body && body.message || '播放地址请求失败');
+    return body;
+  });
+  const lyricRequest = fetch(apiBase() + '/lyric?id=' + id + cookieParam())
+    .then(response => response.ok ? response.json() : null).catch(() => null);
+  const [urlData, lyricData] = await Promise.all([urlRequest, lyricRequest]);
+  const media = urlData.data && urlData.data[0];
+  if (!media || !media.url) throw new Error('没有可用的播放地址');
+  return {
+    url: media.url.replace(/^http:/, 'https:'),
+    lrc: (lyricData && lyricData.lrc && lyricData.lrc.lyric) || '',
+  };
+}
+
+async function refreshNeteaseTrack(track) {
+  const media = await fetchNeteaseMedia(track.ncid);
+  track.url = media.url;
+  track.lrc = media.lrc;
+  const saved = pState.nc.find(item => item.ncid === track.ncid);
+  if (saved) {
+    saved.url = media.url;
+    saved.lrc = media.lrc;
     savePlayerState();
-    rebuildTracks();
-    const idx = tracks.findIndex(t => t.ncid === song.id);
-    if (idx >= 0) playIndex(idx);
-    toggleMusicSearch(false);
-  } catch { toast('播放失败'); }
+  }
+}
+
+function playNetease(song) {
+  const track = {
+    name: song.name,
+    artist: (song.ar || []).map(a => a.name).join(' / '),
+    url: '',
+    cover: song.al && song.al.picUrl
+      ? song.al.picUrl.replace(/^http:/, 'https:') + '?param=120y120' : '',
+    lrc: '',
+    ncid: song.id,
+  };
+  pState.nc = pState.nc.filter(x => x.ncid !== song.id);
+  pState.nc.push(track);
+  savePlayerState();
+  rebuildTracks();
+  const idx = tracks.findIndex(t => t.ncid === song.id);
+  toggleMusicSearch(false);
+  if (idx >= 0) playIndex(idx);
 }
 
 /* ---------- 省电：Lively 暂停/恢复壁纸时同步音乐 ---------- */
