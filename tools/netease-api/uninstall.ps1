@@ -14,7 +14,17 @@ $serverPath = Join-Path $installDir "server.js"
 $shortcutPath = Join-Path ([Environment]::GetFolderPath("Startup")) "wallpaper11 Music Bridge.lnk"
 $logPath = Join-Path $appRoot "music-bridge.log"
 $musicCookiePath = Join-Path $appRoot "music-cookie.txt"
+$failureLog = Join-Path $appRoot "music-uninstall.log"
 $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\wallpaper11 Music Bridge"
+
+if (Test-Path -LiteralPath $failureLog) {
+    Remove-Item -LiteralPath $failureLog -Force -ErrorAction SilentlyContinue
+}
+trap {
+    New-Item -ItemType Directory -Path $appRoot -Force | Out-Null
+    ($_ | Out-String) | Set-Content -LiteralPath $failureLog -Encoding UTF8
+    exit 1
+}
 
 # The installed script may be launched by the bridge while its working directory
 # is the install directory. Move away before removing that directory.

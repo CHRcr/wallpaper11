@@ -75,6 +75,7 @@ $files = @(
     "server.js",
     "run-hidden.cmd",
     "start-hidden.vbs",
+    "uninstall-hidden.vbs",
     "status.ps1",
     "uninstall.ps1"
 )

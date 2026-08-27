@@ -154,8 +154,8 @@ const delay=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds))
 function setProgress(value,text){const safe=Math.max(0,Math.min(100,value));progress.hidden=false;progressBar.style.width=safe+'%';progress.setAttribute('aria-valuenow',String(safe));message.textContent=text;}
 async function action(name){const response=await fetch('/manage/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});const body=await response.json();if(!response.ok)throw new Error(body.message||'操作失败');return body;}
 openLog.onclick=()=>action('open-log').then(body=>message.textContent=body.message||'已打开').catch(error=>message.textContent=error.message);
-async function waitForShutdown(){let value=28;const deadline=Date.now()+15000;while(Date.now()<deadline){await delay(350);try{const response=await fetch('/health?t='+Date.now(),{cache:'no-store'});if(!response.ok)throw new Error('offline');value=Math.min(82,value+4);setProgress(value,'正在停止服务…');}catch{setProgress(90,'正在清理文件和自启项…');await delay(900);setProgress(100,'卸载完成，可以关闭此页面。');status.classList.add('stopped');statusText.textContent='已停止';return;}}setProgress(88,'卸载程序仍在处理，请稍候或关闭页面。');}
-const uninstall=document.getElementById('uninstall');if(uninstall)uninstall.onclick=async()=>{if(!confirm('确定卸载 Music Bridge？'))return;uninstall.disabled=true;openLog.disabled=true;setProgress(8,'正在提交卸载请求…');try{const body=await action('uninstall');setProgress(28,body.message||'正在卸载…');await waitForShutdown();}catch(error){progress.hidden=true;message.textContent=error.message;uninstall.disabled=false;openLog.disabled=false;}};
+async function waitForShutdown(){let value=28;const deadline=Date.now()+15000;while(Date.now()<deadline){await delay(350);try{const response=await fetch('/health?t='+Date.now(),{cache:'no-store'});if(!response.ok)throw new Error('offline');value=Math.min(82,value+4);setProgress(value,'正在停止服务…');}catch{setProgress(90,'正在清理文件和自启项…');await delay(900);setProgress(100,'卸载完成，可以关闭此页面。');status.classList.add('stopped');statusText.textContent='已停止';return true;}}setProgress(88,'未能停止服务，可重试或打开日志目录查看错误。');return false;}
+const uninstall=document.getElementById('uninstall');if(uninstall)uninstall.onclick=async()=>{if(!confirm('确定卸载 Music Bridge？'))return;uninstall.disabled=true;openLog.disabled=true;setProgress(8,'正在提交卸载请求…');try{const body=await action('uninstall');setProgress(28,body.message||'正在卸载…');if(!await waitForShutdown()){uninstall.disabled=false;openLog.disabled=false;}}catch(error){progress.hidden=true;message.textContent=error.message;uninstall.disabled=false;openLog.disabled=false;}};
 </script></body></html>`
 }
 
@@ -215,14 +215,23 @@ async function handleManagement(req, res, url) {
 
   if (url.pathname === '/manage/uninstall') {
     const script = path.join(__dirname, 'uninstall.ps1')
-    if (!fs.existsSync(script)) {
+    const launcher = path.join(__dirname, 'uninstall-hidden.vbs')
+    if (!fs.existsSync(script) || !fs.existsSync(launcher)) {
       sendPrivateJson(res, 409, { code: 409, message: '开发模式下请运行 npm run music:uninstall' })
       return
     }
     sendPrivateJson(res, 202, { ok: true, message: '正在卸载' })
     setTimeout(() => {
-      spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script],
-        { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+      const systemRoot = process.env.SystemRoot || process.env.WINDIR || 'C:\\Windows'
+      const wscript = path.join(systemRoot, 'System32', 'wscript.exe')
+      const child = spawn(wscript, [launcher],
+        { detached: true, stdio: 'ignore', windowsHide: true })
+      child.on('error', (error) => {
+        fs.mkdirSync(APP_DATA_DIR, { recursive: true })
+        fs.appendFileSync(path.join(APP_DATA_DIR, 'music-uninstall.log'),
+          `${new Date().toISOString()} launcher error: ${error.message}\n`, 'utf8')
+      })
+      child.unref()
     }, 250)
     return
   }

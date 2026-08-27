@@ -56,7 +56,8 @@ $files = @(
     "uninstall.ps1",
     "status.ps1",
     "run-hidden.cmd",
-    "start-hidden.vbs"
+    "start-hidden.vbs",
+    "uninstall-hidden.vbs"
 )
 foreach ($file in $files) {
     Copy-Item -LiteralPath (Join-Path $sourceDir $file) -Destination $payloadRoot
