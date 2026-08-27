@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node tools/dev-server.js",
     "media": "node tools/prepare-lively-media.js",
+    "words:build": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-gaokao-words.ps1",
     "check": "node tools/check-lively.js",
     "package": "powershell -ExecutionPolicy Bypass -File tools/package-lively.ps1",
     "music:install": "powershell -ExecutionPolicy Bypass -File tools/netease-api/install.ps1",

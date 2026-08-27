@@ -144,7 +144,7 @@ function updateCountdown() {
 
 /* ---------- 3500 词卡片（词组形式，示例数据） ---------- */
 
-const WORDS = [
+const SAMPLE_WORDS = [
   {
     word: 'abandon', pos: 'v. 放弃；抛弃；离弃',
     derivs: [
@@ -188,7 +188,183 @@ const WORDS = [
   },
 ];
 
-let wordIndex = 0;
+const WORD_PHRASES = window.W11_WORD_PHRASES || Object.create(null);
+const WORD_FAMILIES = window.W11_WORD_FAMILIES || Object.create(null);
+const WORD_CONFUSIONS = window.W11_WORD_CONFUSIONS || Object.create(null);
+const WORDS = Array.isArray(window.W11_WORDS) && window.W11_WORDS.length > 100
+  ? window.W11_WORDS
+  : SAMPLE_WORDS;
+
+function wordKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+const FAMILY_BY_WORD = new Map();
+for (const [root, family] of Object.entries(WORD_FAMILIES)) {
+  if (!family || !Array.isArray(family.family)) continue;
+  const entry = { root, family };
+  FAMILY_BY_WORD.set(wordKey(root), entry);
+  for (const member of family.family) {
+    if (Array.isArray(member) && member[0]) FAMILY_BY_WORD.set(wordKey(member[0]), entry);
+  }
+}
+
+function familyForWord(word) {
+  return FAMILY_BY_WORD.get(wordKey(word.word));
+}
+
+function familyRowsForWord(word) {
+  const group = familyForWord(word);
+  if (group) {
+    const current = wordKey(word.word);
+    return group.family.family
+      .filter((member) => Array.isArray(member) && member[0] && member[1] && wordKey(member[0]) !== current)
+      .slice(0, 4);
+  }
+  return Array.isArray(word.derivs) ? word.derivs.slice(0, 4) : [];
+}
+
+function phrasesForWord(word) {
+  const group = familyForWord(word);
+  if (group && Array.isArray(group.family.phrases) && group.family.phrases.length) {
+    return group.family.phrases.slice(0, 2);
+  }
+  const phrase = word.phrase || WORD_PHRASES[group?.root] || WORD_PHRASES[wordKey(word.word)];
+  return phrase ? [phrase] : [];
+}
+
+function confusionForWord(word) {
+  return WORD_CONFUSIONS[wordKey(word.word)] || '';
+}
+
+function renderWordFamily(family) {
+  const list = $('wcDerivs');
+  const label = $('wcFamilyLabel');
+  list.replaceChildren();
+  list.hidden = family.length === 0;
+  label.hidden = family.length === 0;
+  for (const [value, meaning] of family) {
+    const item = document.createElement('li');
+    const familyWord = document.createElement('span');
+    const description = document.createElement('span');
+    familyWord.className = 'dw';
+    description.className = 'dm';
+    familyWord.textContent = value;
+    description.textContent = meaning;
+    item.append(familyWord, description);
+    list.append(item);
+  }
+}
+
+function renderWordPhrases(phrases) {
+  const list = $('wcPhrases');
+  list.replaceChildren();
+  list.hidden = phrases.length === 0;
+  for (const phrase of phrases) {
+    const item = document.createElement('li');
+    item.textContent = phrase;
+    list.append(item);
+  }
+}
+
+function renderWordConfusion(confusion) {
+  const note = $('wcConfusion');
+  note.hidden = !confusion;
+  note.textContent = confusion;
+}
+
+const EASY_WORDS = new Set(`
+  a an and or but the this that these those i you he she it we they me him her us my your his its our their
+  be am is are was were been being do does did have has had can could may might must shall should will would
+  not no yes all any some each every both either neither one two three first last other another same own
+  in on at by for from to of with about after before over under between through during into out up down off
+  here there where when why how who what which than then if because while although as so also only even just
+  very too more most less least much many few little enough again once always often sometimes never ever
+  good bad big small long short high low old young new early late right wrong true false easy hard simple
+  day week month year time today tomorrow yesterday morning afternoon evening night now soon still already
+  man woman boy girl child children people person family friend name home house room school class teacher student
+  book pen paper desk chair door window road street city town country world place thing way side part kind type
+  food water bread milk tea coffee fruit rice meat egg fish money shop store market work job office company
+  go come get make take give put keep let help use need want like love know think see look watch hear say tell
+  ask answer call talk speak read write learn study play run walk sit stand open close start stop turn move live
+  eat drink sleep buy sell pay wait meet find show bring carry leave hold wear wash clean cook drive ride fly
+  happy sad nice fine well great best better worst important different public common free full ready sure
+  red blue green black white yellow brown hot cold warm cool light dark fast slow near far strong weak busy
+`.trim().split(/\s+/));
+
+function hasPhraseSupport(word) {
+  const group = familyForWord(word);
+  return Boolean(
+    (group && Array.isArray(group.family.phrases) && group.family.phrases.length)
+    || word.phrase
+    || WORD_PHRASES[group?.root]
+    || WORD_PHRASES[wordKey(word.word)],
+  );
+}
+
+function studyGroupKey(word) {
+  const family = familyForWord(word);
+  return family ? `family:${family.root}` : `word:${wordKey(word.word)}`;
+}
+
+const WORD_BUCKETS = {
+  family: [],
+  phrase: [],
+  confusion: [],
+  basic: [],
+  all: WORDS.map((_, index) => index),
+};
+
+WORDS.forEach((word, index) => {
+  const hasFamily = Boolean(familyForWord(word));
+  const hasPhrase = hasPhraseSupport(word);
+  const isBasic = EASY_WORDS.has(wordKey(word.word));
+  if (hasFamily && hasPhrase) WORD_BUCKETS.family.push(index);
+  if (!hasFamily && hasPhrase && !isBasic) WORD_BUCKETS.phrase.push(index);
+  if (confusionForWord(word)) WORD_BUCKETS.confusion.push(index);
+  if (isBasic && hasPhrase) WORD_BUCKETS.basic.push(index);
+});
+
+const RECENT_GROUP_LIMIT = 18;
+const recentStudyGroups = [];
+
+function chooseFromBucket(indices) {
+  const fresh = indices.filter((index) => !recentStudyGroups.includes(studyGroupKey(WORDS[index])));
+  const choices = fresh.length ? fresh : indices;
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
+function chooseStudyWordIndex() {
+  const roll = Math.random();
+  const preferred = roll < 0.60
+    ? 'family'
+    : roll < 0.85
+      ? 'phrase'
+      : roll < 0.95
+        ? 'confusion'
+        : 'basic';
+  const fallbacks = {
+    family: ['phrase', 'confusion', 'basic', 'all'],
+    phrase: ['family', 'confusion', 'basic', 'all'],
+    confusion: ['family', 'phrase', 'basic', 'all'],
+    basic: ['family', 'phrase', 'confusion', 'all'],
+  };
+  for (const bucket of [preferred, ...fallbacks[preferred]]) {
+    if (WORD_BUCKETS[bucket].length) return chooseFromBucket(WORD_BUCKETS[bucket]);
+  }
+  return 0;
+}
+
+function rememberStudyGroup(word) {
+  const key = studyGroupKey(word);
+  const existing = recentStudyGroups.indexOf(key);
+  if (existing >= 0) recentStudyGroups.splice(existing, 1);
+  recentStudyGroups.push(key);
+  if (recentStudyGroups.length > RECENT_GROUP_LIMIT) recentStudyGroups.shift();
+}
+
+const successIndex = WORDS.findIndex((word) => wordKey(word.word) === 'success');
+let wordIndex = successIndex >= 0 ? successIndex : 0;
 let wordTimer = null;
 const wcInner = $('wcInner');
 
@@ -196,16 +372,19 @@ function renderWord(i) {
   const w = WORDS[i];
   $('wcWord').textContent = w.word;
   $('wcPos').textContent = w.pos;
-  $('wcDerivs').innerHTML = w.derivs
-    .map(([dw, dm]) => `<li><span class="dw">${dw}</span><span class="dm">${dm}</span></li>`)
-    .join('');
-  $('wcPhrase').textContent = w.phrase;
-  $('wcCount').textContent = `高考 3500 词 · ${i + 1} / ${WORDS.length}`;
+  renderWordFamily(familyRowsForWord(w));
+  renderWordPhrases(phrasesForWord(w));
+  renderWordConfusion(confusionForWord(w));
+  rememberStudyGroup(w);
+  $('wcCount').textContent = `高考词表 · ${i + 1} / ${WORDS.length}`;
 }
 
 function nextWord(immediate = false) {
-  let i;
-  do { i = Math.floor(Math.random() * WORDS.length); } while (WORDS.length > 1 && i === wordIndex);
+  let i = wordIndex;
+  for (let attempts = 0; attempts < 8 && WORDS.length > 1 && i === wordIndex; attempts += 1) {
+    i = chooseStudyWordIndex();
+  }
+  if (WORDS.length > 1 && i === wordIndex) i = (wordIndex + 1) % WORDS.length;
   wordIndex = i;
 
   if (immediate) { renderWord(i); return; }
@@ -791,7 +970,7 @@ document.addEventListener('visibilitychange', () => {
 /* ---------- 启动 ---------- */
 
 applySettings();
-renderWord(0);
+renderWord(wordIndex);
 restartWordTimer();
 tick();
 setInterval(tick, 250);

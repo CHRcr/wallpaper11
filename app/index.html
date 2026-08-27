@@ -40,12 +40,16 @@
       <div class="wc-inner" id="wcInner">
         <div class="wc-head">
           <span class="wc-word" id="wcWord">abandon</span>
-          <button class="wc-next" id="wcNext" title="换一个">&#10227;</button>
+          <button class="wc-next" id="wcNext" type="button" aria-label="换一个单词" title="换一个单词">
+            <span>换一个</span>
+          </button>
         </div>
         <div class="wc-pos" id="wcPos"></div>
+        <div class="wc-family-label" id="wcFamilyLabel" hidden>词族</div>
         <ul class="wc-derivs" id="wcDerivs"></ul>
+        <div class="wc-confusion" id="wcConfusion" hidden></div>
         <div class="wc-foot">
-          <span class="wc-phrase" id="wcPhrase"></span>
+          <ul class="wc-phrases" id="wcPhrases"></ul>
           <span class="wc-count" id="wcCount"></span>
         </div>
       </div>
@@ -277,6 +281,10 @@
     window.W11_MEDIA_LIBRARY = { music: [], backgroundUrl: '', mediaDir: 'media' };
   </script>
   <script src="media/media-library.js" onerror="this.remove()"></script>
+  <script src="js/word-data.js" onerror="this.remove()"></script>
+  <script src="js/word-phrases.js" onerror="this.remove()"></script>
+  <script src="js/word-families.js" onerror="this.remove()"></script>
+  <script src="js/word-confusions.js" onerror="this.remove()"></script>
   <script src="js/main.js"></script>
   <script src="js/player.js"></script>
 </body>

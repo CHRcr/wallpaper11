@@ -276,18 +276,34 @@ input[type="date"] {
 }
 
 .wc-next {
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink-faint);
-  font-size: 20px;
-  width: 40px; height: 40px;
-  border-radius: 50%;
+  min-width: 68px;
+  min-height: 44px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 220, 190, 0.16);
+  background: rgba(31, 20, 42, 0.20);
+  color: rgba(255, 239, 221, 0.72);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  border-radius: 999px;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.25s, color 0.25s, transform 0.5s var(--ease-soft);
+  opacity: 0.68;
+  transition: opacity 0.2s, background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s var(--ease-soft);
 }
-.wordcard:hover .wc-next { opacity: 1; }
-.wc-next:hover { color: var(--ink); transform: rotate(160deg); }
+.wordcard:hover .wc-next,
+.wc-next:focus-visible { opacity: 1; }
+.wc-next:hover {
+  border-color: rgba(255, 207, 156, 0.46);
+  background: rgba(255, 207, 156, 0.12);
+  color: var(--gold);
+  transform: translateY(-1px);
+}
+.wc-next:active { transform: translateY(0) scale(0.97); }
+.wc-next:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .wc-pos {
   margin-top: 2px;
@@ -296,12 +312,20 @@ input[type="date"] {
   text-shadow: var(--txt-shadow);
 }
 
+.wc-family-label {
+  margin-top: 11px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: rgba(255, 222, 188, 0.5);
+}
+
 .wc-derivs {
   list-style: none;
-  margin-top: 12px;
+  margin-top: 5px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .wc-derivs li {
@@ -319,6 +343,18 @@ input[type="date"] {
 }
 .wc-derivs .dm { color: var(--ink-dim); }
 
+.wc-confusion {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: rgba(255, 229, 202, 0.72);
+}
+.wc-confusion::before {
+  content: "易混 · ";
+  color: var(--gold);
+  font-weight: 600;
+}
+
 .wc-foot {
   margin-top: 13px;
   padding-top: 11px;
@@ -329,12 +365,18 @@ input[type="date"] {
   gap: 14px;
 }
 
-.wc-phrase {
-  font-size: 13.5px;
+.wc-phrases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
   letter-spacing: 0.03em;
   color: var(--ink-faint);
 }
-.wc-phrase::before { content: "▸ "; color: var(--gold); }
+.wc-phrases li::before { content: "▸ "; color: var(--gold); }
 
 .wc-count {
   flex-shrink: 0;
