@@ -1,0 +1,11 @@
+{
+  "name": "wallpaper11-lively",
+  "private": true,
+  "version": "0.2.0",
+  "scripts": {
+    "dev": "node tools/dev-server.js",
+    "media": "node tools/prepare-lively-media.js",
+    "check": "node tools/check-lively.js",
+    "package": "powershell -ExecutionPolicy Bypass -File tools/package-lively.ps1"
+  }
+}

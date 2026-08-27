@@ -1,21 +1,15 @@
-# 版权素材，不上传仓库
-app/assets/bg.mp4
-app/assets/*.mp4
-/local-media/
-/音乐源/
+# 本机媒体与版权素材，不上传仓库
 /local-video/
 /local-music/
+/local-homework/
+/app/media/video/*
+/app/media/music/*
+/app/media/homework/*
+/app/media/media-library.js
+!/app/media/README.txt
 
 # 第三方依赖
 tools/netease-api/node_modules/
-host/node_modules/
-host/src-tauri/target/
-host/src-tauri/gen/
-host/src-tauri/icons/
+node_modules/
 /dist/
-
-# 本地图片缓存
-app/data/*.png
-app/data/*.jpg
-app/data/*.jpeg
 *.log

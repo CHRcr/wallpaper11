@@ -1,0 +1,14 @@
+{
+  "AppVersion": "2.2.0.0",
+  "Title": "wallpaper11",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "为教室触屏一体机设计的暮色暖金交互式桌面",
+  "Author": "CHRcr",
+  "License": null,
+  "Contact": "https://github.com/CHRcr/wallpaper11",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": "--pause-event true",
+  "IsAbsolutePath": false
+}

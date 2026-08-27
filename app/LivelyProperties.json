@@ -1,0 +1,67 @@
+{
+  "backgroundVideo": {
+    "type": "folderDropdown",
+    "value": "",
+    "text": "背景视频",
+    "filter": "*.mp4|*.webm|*.ogg|*.ogv",
+    "folder": "media/video"
+  },
+  "backgroundPlayback": {
+    "type": "checkbox",
+    "value": true,
+    "text": "播放背景视频"
+  },
+  "interfaceScale": {
+    "type": "slider",
+    "value": 100,
+    "text": "界面缩放（%）",
+    "min": 80,
+    "max": 140,
+    "step": 5
+  },
+  "showSeconds": {
+    "type": "checkbox",
+    "value": true,
+    "text": "显示秒"
+  },
+  "hour12": {
+    "type": "checkbox",
+    "value": false,
+    "text": "12 小时制"
+  },
+  "examDate": {
+    "type": "textbox",
+    "value": "2027-06-07",
+    "text": "高考日期（YYYY-MM-DD）"
+  },
+  "examTitle": {
+    "type": "textbox",
+    "value": "距 2027 高考",
+    "text": "倒计时标题"
+  },
+  "wordInterval": {
+    "type": "slider",
+    "value": 50,
+    "text": "单词切换间隔（秒）",
+    "min": 5,
+    "max": 600,
+    "step": 5
+  },
+  "homeworkImage": {
+    "type": "folderDropdown",
+    "value": "",
+    "text": "今日作业图片",
+    "filter": "*.jpg|*.jpeg|*.png|*.webp|*.bmp",
+    "folder": "media/homework"
+  },
+  "musicApi": {
+    "type": "textbox",
+    "value": "http://127.0.0.1:16311",
+    "text": "网易云 API"
+  },
+  "musicCookie": {
+    "type": "textbox",
+    "value": "",
+    "text": "网易云 MUSIC_U"
+  }
+}

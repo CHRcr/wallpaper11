@@ -19,8 +19,6 @@ const DEFAULTS = {
 };
 
 const SETTINGS_KEY = 'w11-settings';
-const MEDIA_KEY = 'w11-media-revision';
-
 function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -36,24 +34,7 @@ function saveSettings() {
 
 const $ = (id) => document.getElementById(id);
 
-/* ---------- 角色 / 宿主桥接 ---------- */
-
-// wallpaper=纯壁纸层 / overlay=工具条+面板层 / all=浏览器完整模式
-const W11_ROLE = document.documentElement.dataset.role || 'all';
-
-// Tauri 宿主桥（withGlobalTauri 注入；浏览器里不存在）
-const TAURI = window.__TAURI__ || null;
-function tInvoke(cmd, args) {
-  if (!TAURI) return Promise.reject(new Error('no host'));
-  return TAURI.core.invoke(cmd, args);
-}
-
-// Tauri 的透明窗口只覆盖当前控件的实际区域，不能用整屏透明窗挡住桌面点击。
-function registerOverlayPanel(mode) {
-  const next = mode || 'pill';
-  document.documentElement.dataset.overlayMode = next;
-  if (TAURI) tInvoke('set_overlay_mode', { mode: next }).catch(() => {});
-}
+/* ---------- 单窗口运行时 / Lively 桥接 ---------- */
 
 // 面板互斥：同时只开一个（player.js 会把音乐面板也注册进来）
 const panelClosers = [];   // [{ el, close }]
@@ -61,10 +42,10 @@ function closeOtherPanels(exceptEl) {
   for (const p of panelClosers) if (p.el !== exceptEl) p.close();
 }
 
-// 宿主进入全屏省电状态前收起所有交互面板，恢复时只显示低调工具栏。
+// Lively 暂停壁纸前收起交互面板，恢复时保留低调工具栏。
 window.__w11ClosePanels = () => closeOtherPanels(null);
 
-// 省电钩子：宿主检测到全屏程序 / 托盘暂停时调用 window.__w11Power(false)
+// Lively 的 --pause-event 会调用此钩子，同步冻结视频和音乐。
 const powerHandlers = [];
 let powerRunning = true;
 window.__w11Power = (run) => {
@@ -74,7 +55,7 @@ window.__w11Power = (run) => {
 window.__w11PowerRunning = () => powerRunning;
 
 function runtimeLog(message) {
-  if (TAURI) tInvoke('runtime_log', { message: W11_ROLE + ': ' + message }).catch(() => {});
+  console.debug('[wallpaper11]', message);
 }
 
 /* ---------- Toast ---------- */
@@ -87,6 +68,23 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2200);
 }
+
+/* ---------- 可滚动面板：约束滚轮和触屏手势 ---------- */
+
+function setupContainedScroll(element) {
+  if (!element) return;
+  element.addEventListener('wheel', (event) => {
+    if (event.ctrlKey || element.scrollHeight <= element.clientHeight + 1) return;
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    const unit = event.deltaMode === 1 ? 20
+      : event.deltaMode === 2 ? element.clientHeight : 1;
+    element.scrollTop += event.deltaY * unit;
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
+}
+
+document.querySelectorAll('[data-scroll-surface]').forEach(setupContainedScroll);
 
 /* ---------- 时钟 + 日期 + 年度进度 ---------- */
 
@@ -273,6 +271,7 @@ const hwBody = $('hwBody');
 const hwImg = $('hwImg');
 const hwDot = $('hwDot');
 let hwObjUrl = null;
+let livelyHomeworkSource = '';
 
 function showHomeworkImage(blob) {
   if (hwObjUrl) URL.revokeObjectURL(hwObjUrl);
@@ -284,8 +283,19 @@ function showHomeworkImage(blob) {
   hwDot.hidden = false;   // 工具栏按钮小红点
 }
 
+function showHomeworkImageUrl(url) {
+  if (hwObjUrl) { URL.revokeObjectURL(hwObjUrl); hwObjUrl = null; }
+  livelyHomeworkSource = url;
+  hwImg.src = url;
+  hwImg.hidden = false;
+  $('hwEmpty').style.display = 'none';
+  hwBody.classList.add('has-image');
+  hwDot.hidden = false;
+}
+
 function clearHomework(silent = false) {
   if (hwObjUrl) { URL.revokeObjectURL(hwObjUrl); hwObjUrl = null; }
+  livelyHomeworkSource = '';
   hwImg.hidden = true;
   hwImg.removeAttribute('src');
   $('hwEmpty').style.display = '';
@@ -313,13 +323,11 @@ async function saveHomeworkFile(file) {
 const hwPanel = document.querySelector('.hw-panel');
 
 function openHomework() {
-  if (W11_ROLE === 'wallpaper') return;    // 壁纸层无面板
   if (!homeworkMask.hidden) return;
   closeOtherPanels(homeworkMask);
   homeworkMask.hidden = false;
   document.body.classList.add('hw-open');
   bgVideo.pause();                    // 背景静止，减少干扰
-  registerOverlayPanel('homework');
 }
 function closeHomework() {
   if (homeworkMask.hidden) return;
@@ -327,7 +335,6 @@ function closeHomework() {
   hwBody.classList.remove('dragover');
   document.body.classList.remove('hw-open');
   applyBgMode();                      // 按设置恢复视频
-  registerOverlayPanel(null);
 }
 
 /* 面板尺寸适配图片比例 */
@@ -364,24 +371,16 @@ document.addEventListener('keydown', (e) => {
   if (!settingsMask.hidden) closeSettings();
 });
 
-// 全局拖拽拦截（防止误拖导航）+ 拖图自动展开板
-window.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  // 如果是图片拖入且面板未开，自动展开
-  if (homeworkMask.hidden && e.dataTransfer.types.includes('Files')) {
-    openHomework();
-  }
-});
-window.addEventListener('drop', (e) => e.preventDefault());
-
-// 面板内拖拽高亮
+// 只在作业板内部接管文件拖拽，避免和 Windows 桌面拖放冲突。
 hwBody.addEventListener('dragover', (e) => {
   e.preventDefault();
+  e.stopPropagation();
   hwBody.classList.add('dragover');
 });
 hwBody.addEventListener('dragleave', () => hwBody.classList.remove('dragover'));
 hwBody.addEventListener('drop', (e) => {
   e.preventDefault();
+  e.stopPropagation();
   hwBody.classList.remove('dragover');
   saveHomeworkFile(e.dataTransfer.files && e.dataTransfer.files[0]);
 });
@@ -408,7 +407,7 @@ $('btnHomework').addEventListener('click', openHomework);
 async function loadHomework() {
   try {
     const blob = await idb.get('hwImage');
-    if (blob) showHomeworkImage(blob);
+    if (blob && !livelyHomeworkSource) showHomeworkImage(blob);
   } catch { /* 首次使用无库，忽略 */ }
 }
 
@@ -430,7 +429,6 @@ function cookieParam() {
 const settingsMask = $('settingsMask');
 
 function openSettings() {
-  if (W11_ROLE === 'wallpaper') return;    // 壁纸层无面板
   if (!settingsMask.hidden) return;
   closeOtherPanels(settingsMask);
   $('setExamDate').value = settings.examDate;
@@ -443,13 +441,11 @@ function openSettings() {
   $('setMusicApi').value = settings.musicApi;
   $('setMusicCookie').value = settings.musicCookie;
   settingsMask.hidden = false;
-  registerOverlayPanel('settings');
 }
 
 function closeSettings() {
   if (settingsMask.hidden) return;
   settingsMask.hidden = true;
-  registerOverlayPanel(null);
 }
 
 panelClosers.push({ el: homeworkMask, close: closeHomework });
@@ -519,62 +515,101 @@ function applySettings() {
 }
 
 const bgVideo = $('bgVideo');
+let livelyBackgroundSource = '';
 
 function updateMediaStatus(library) {
   const status = $('mediaStatus');
   if (!status || !library) return;
   const musicCount = Array.isArray(library.music) ? library.music.length : 0;
-  status.textContent = '已识别 ' + musicCount + ' 首音乐' +
-    (library.backgroundUrl ? '，背景视频已就绪' : '，未找到背景视频');
-  status.hidden = false;
+  status.textContent = '本机音乐 ' + musicCount + ' 首 · ' +
+    ((livelyBackgroundSource || library.backgroundUrl) ? '背景已就绪' : '未选择背景视频');
 }
 
-async function refreshMediaLibrary(options = {}) {
-  if (!TAURI) return null;
-  try {
-    const library = await tInvoke('get_media_library');
-    window.W11_MEDIA_LIBRARY = library;
-    updateMediaStatus(library);
-    runtimeLog('media scan music=' + (library.music || []).length +
-      ' video=' + (library.backgroundUrl || 'none') + ' root=' + library.mediaDir);
+function localMediaUrl(value, folder) {
+  let path = String(value || '').trim().replace(/\\/g, '/');
+  if (!path) return '';
+  if (/^(?:https?:|file:|data:|blob:)/i.test(path)) return path;
+  path = path.replace(/^\.\//, '');
+  if (!path.includes('/')) path = folder + '/' + path;
+  return path;
+}
 
-    if (W11_ROLE !== 'overlay') {
-      const source = library.backgroundUrl || '';
-      if (bgVideo.dataset.mediaSource !== source) {
-        bgVideo.pause();
-        bgVideo.dataset.mediaSource = source;
-        if (source) bgVideo.src = source;
-        else bgVideo.removeAttribute('src');
-        bgVideo.load();
-        applyBgMode();
-      }
-    }
+function setBackgroundSource(source) {
+  const next = String(source || '');
+  if (bgVideo.dataset.mediaSource === next) return;
+  bgVideo.pause();
+  bgVideo.dataset.mediaSource = next;
+  if (next) bgVideo.src = next;
+  else bgVideo.removeAttribute('src');
+  bgVideo.load();
+  applyBgMode();
+}
 
-    document.dispatchEvent(new CustomEvent('w11-media-library', { detail: library }));
-    if (W11_ROLE !== 'wallpaper') {
-      localStorage.setItem(MEDIA_KEY, String(Date.now()));
+function applyMediaLibrary(library) {
+  const next = library && typeof library === 'object'
+    ? library : { music: [], backgroundUrl: '', mediaDir: 'media' };
+  next.music = Array.isArray(next.music) ? next.music : [];
+  window.W11_MEDIA_LIBRARY = next;
+  if (!livelyBackgroundSource) setBackgroundSource(next.backgroundUrl || '');
+  updateMediaStatus(next);
+  document.dispatchEvent(new CustomEvent('w11-media-library', { detail: next }));
+}
+
+function refreshSettingsRuntime() {
+  saveSettings();
+  applySettings();
+  applyBgMode();
+  restartWordTimer();
+  tick();
+  updateCountdown();
+}
+
+// Lively 持久属性回调。属性面板与壁纸内设置使用同一份运行时状态。
+window.livelyPropertyListener = function livelyPropertyListener(name, value) {
+  switch (name) {
+    case 'backgroundVideo': {
+      livelyBackgroundSource = localMediaUrl(value, 'media/video');
+      setBackgroundSource(livelyBackgroundSource || window.W11_MEDIA_LIBRARY.backgroundUrl || '');
+      updateMediaStatus(window.W11_MEDIA_LIBRARY);
+      return;
     }
-    if (!options.silent) toast('媒体库已刷新');
-    return library;
-  } catch (error) {
-    runtimeLog('media scan failed: ' + error);
-    if (!options.silent) toast('媒体库读取失败');
-    return null;
+    case 'homeworkImage': {
+      const source = localMediaUrl(value, 'media/homework');
+      if (source) showHomeworkImageUrl(source);
+      return;
+    }
+    case 'examDate': settings.examDate = String(value || DEFAULTS.examDate); break;
+    case 'examTitle': settings.examTitle = String(value || DEFAULTS.examTitle); break;
+    case 'wordInterval': settings.wordInterval = Number(value) || DEFAULTS.wordInterval; break;
+    case 'hour12': settings.hour12 = !!value; break;
+    case 'showSeconds': settings.showSec = !!value; break;
+    case 'backgroundPlayback': settings.bgMode = value ? 'play' : 'pause'; break;
+    case 'interfaceScale': settings.scale = Math.min(1.4, Math.max(0.8, Number(value) / 100 || 1)); break;
+    case 'musicApi': settings.musicApi = String(value || DEFAULTS.musicApi); break;
+    case 'musicCookie': settings.musicCookie = String(value || ''); break;
+    case 'lively_default_settings_reload': settings = { ...DEFAULTS }; break;
+    default: return;
   }
-}
+  refreshSettingsRuntime();
+};
 
-window.w11RefreshMediaLibrary = refreshMediaLibrary;
+window.livelyWallpaperPlaybackChanged = function livelyWallpaperPlaybackChanged(data) {
+  try {
+    const state = typeof data === 'string' ? JSON.parse(data) : data;
+    const running = !(state && state.IsPaused);
+    if (!running) window.__w11ClosePanels();
+    window.__w11Power(running);
+  } catch (error) {
+    runtimeLog('pause event parse failed: ' + error.message);
+  }
+};
 
 function applyBgMode() {
-  if (W11_ROLE === 'overlay') return;   // 工具条层没有视频
   if (!bgVideo.dataset.mediaSource) {
     bgVideo.pause();
     return;
   }
-  // WorkerW 中的 WebView2 即使肉眼可见，也可能把 document.hidden 报为 true。
-  // 宿主模式只由显式 power state 控制；浏览器预览才使用 Visibility API。
-  const visibilityPaused = !TAURI && document.hidden;
-  if (settings.bgMode === 'pause' || visibilityPaused || !powerRunning) {
+  if (settings.bgMode === 'pause' || document.hidden || !powerRunning) {
     bgVideo.pause();               // 冻结当前帧 = 静态壁纸，最省性能
   } else {
     bgVideo.play().catch((error) => runtimeLog('video play rejected: ' + error.message));
@@ -595,61 +630,15 @@ bgVideo.addEventListener('error', () => {
   runtimeLog('video error code=' + code + ' src=' + bgVideo.currentSrc);
 });
 
-// overlay 角色：视频元素不加载（窗口透明，纯工具条）
-if (W11_ROLE === 'overlay') {
-  bgVideo.removeAttribute('src');
-  bgVideo.load();
-}
-
-// 宿主要求暂停/恢复（其他应用窗口位于前台时冻结视频）
+// Lively 暂停/恢复壁纸时同步视频状态。
 powerHandlers.push((run) => {
-  if (W11_ROLE === 'overlay') return;
   if (run) applyBgMode(); else bgVideo.pause();
-});
-
-/* ---------- 跨窗同步：另一窗口改了设置 → 本窗即时应用 ---------- */
-
-window.addEventListener('storage', (e) => {
-  if (e.key === SETTINGS_KEY && W11_ROLE !== 'overlay') {
-    settings = loadSettings();
-    applySettings(); applyBgMode(); restartWordTimer(); tick(); updateCountdown();
-  }
-  if (e.key === MEDIA_KEY && W11_ROLE === 'wallpaper') {
-    refreshMediaLibrary({ silent: true });
-  }
-});
-
-/* ---------- 宿主功能（开机自启 / 检查更新 / 退出） ---------- */
-
-if (TAURI) {
-  document.querySelectorAll('.host-only').forEach(el => { el.hidden = false; });
-  tInvoke('get_autostart').then(v => { $('setAutostart').checked = !!v; }).catch(() => {});
-  $('setAutostart').addEventListener('change', (e) => {
-    tInvoke('set_autostart', { enable: e.target.checked })
-      .catch(() => { e.target.checked = !e.target.checked; toast('设置失败'); });
-  });
-  $('btnCheckUpdate').addEventListener('click', () => {
-    toast('正在检查更新…');
-    tInvoke('check_update').then((msg) => toast(String(msg || '已是最新')))
-      .catch(() => toast('检查更新失败'));
-  });
-  $('btnOpenMedia').addEventListener('click', () => {
-    tInvoke('open_media_folder').catch(() => toast('无法打开媒体文件夹'));
-  });
-  $('btnRefreshMedia').addEventListener('click', () => refreshMediaLibrary());
-  $('btnExit').addEventListener('click', () => { tInvoke('exit_app').catch(() => {}); });
-}
-
-$('btnOpenProject').addEventListener('click', (e) => {
-  if (!TAURI) return;
-  e.preventDefault();
-  tInvoke('open_project_page').catch(() => toast('无法打开项目页面'));
 });
 
 /* ---------- 性能：页面不可见时全部停摆 ---------- */
 
 document.addEventListener('visibilitychange', () => {
-  if (!TAURI) applyBgMode();
+  applyBgMode();
   // setInterval 在页面隐藏时浏览器会自动限流，无需额外处理
 });
 
@@ -662,13 +651,8 @@ tick();
 setInterval(tick, 250);
 updateCountdown();
 loadHomework();
+applyMediaLibrary(window.W11_MEDIA_LIBRARY);
 applyBgMode();
-if (TAURI) refreshMediaLibrary({ silent: true });
-if (TAURI) {
-  tInvoke('get_power_state').then((run) => window.__w11Power(run)).catch(() => {});
-  // 防止桌面底层 WebView2 因长期不在前台而冻结/卸载页面。
-  navigator.locks?.request('wallpaper11-runtime', () => new Promise(() => {})).catch(() => {});
-}
 
 // 调试钩子：?hw=1 直接打开作业板（?music=1 由 player.js 处理）
 const debugParams = new URLSearchParams(location.search);

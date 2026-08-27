@@ -5,12 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>wallpaper11</title>
-<script>
-/* 角色和控件窗初态必须在 CSS 首帧前确定，避免工具栏被误判成面板模式。 */
-const initialRole = new URLSearchParams(location.search).get('role') || 'all';
-document.documentElement.dataset.role = initialRole;
-if (initialRole === 'overlay') document.documentElement.dataset.overlayMode = 'pill';
-</script>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -116,7 +110,7 @@ if (initialRole === 'overlay') document.documentElement.dataset.overlayMode = 'p
         <span>设置</span>
         <button class="panel-close" id="settingsClose" title="关闭">&#10005;</button>
       </header>
-      <div class="panel-body">
+      <div class="panel-body" data-scroll-surface tabindex="0" role="region" aria-label="设置内容">
         <label class="field">
           <span class="field-name">高考日期</span>
           <input type="date" id="setExamDate">
@@ -163,28 +157,19 @@ if (initialRole === 'overlay') document.documentElement.dataset.overlayMode = 'p
           <span class="field-name">数据</span>
           <button class="mini-btn" id="btnReset">恢复默认设置</button>
         </div>
-        <div class="field host-only" hidden>
-          <span class="field-name">本机媒体</span>
-          <span class="host-btns">
-            <button class="mini-btn" id="btnOpenMedia">打开媒体文件夹</button>
-            <button class="mini-btn" id="btnRefreshMedia">刷新媒体</button>
-          </span>
-        </div>
-        <p class="host-media-note host-only" id="mediaStatus" hidden></p>
-        <div class="field host-only" hidden>
-          <span class="field-name">开机自启动</span>
-          <input type="checkbox" id="setAutostart">
-        </div>
-        <div class="field host-only" hidden>
-          <span class="field-name">更新</span>
-          <span class="host-btns">
-            <button class="mini-btn" id="btnCheckUpdate">检查更新</button>
-            <button class="mini-btn danger" id="btnExit">退出壁纸</button>
-          </span>
-        </div>
+        <p class="media-note" id="mediaStatus"></p>
         <div class="field">
           <span class="field-name">项目</span>
-          <a class="mini-btn project-link" id="btnOpenProject" href="https://github.com/CHRcr/wallpaper11" target="_blank" rel="noopener">GitHub 项目</a>
+          <a class="github-btn" id="btnOpenProject"
+             href="https://github.com/CHRcr/wallpaper11"
+             target="_blank" rel="noopener noreferrer"
+             aria-label="在 GitHub 打开 CHRcr/wallpaper11">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.093.682-.217.682-.483 0-.237-.009-.866-.014-1.7-2.782.605-3.369-1.343-3.369-1.343-.455-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.071 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.091-.647.349-1.088.635-1.338-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.56 9.56 0 0 1 12 6.836a9.55 9.55 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.337 4.695-4.566 4.943.359.31.678.921.678 1.856 0 1.34-.012 2.421-.012 2.75 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/>
+            </svg>
+            <span>GitHub</span>
+            <small>CHRcr/wallpaper11</small>
+          </a>
         </div>
       </div>
     </div>
@@ -253,11 +238,13 @@ if (initialRole === 'overlay') document.documentElement.dataset.overlayMode = 'p
           <div class="mp-list-head">
             <span class="mp-list-title">播放列表 <em id="mpListCount">0</em></span>
             <span class="mp-list-btns">
+              <button class="mp-list-btn mp-list-page" id="mpListPageUp" title="向上翻页" aria-label="播放列表向上翻页">&#9650;</button>
+              <button class="mp-list-btn mp-list-page" id="mpListPageDown" title="向下翻页" aria-label="播放列表向下翻页">&#9660;</button>
               <button class="mp-list-btn" id="mpListRestore" hidden>恢复</button>
               <button class="mp-list-btn" id="mpListClear">清空</button>
             </span>
           </div>
-          <ol class="mp-list-ol" id="mpListOl"></ol>
+          <ol class="mp-list-ol" id="mpListOl" data-scroll-surface tabindex="0" aria-label="播放列表"></ol>
         </aside>
       </div>
 
@@ -268,7 +255,7 @@ if (initialRole === 'overlay') document.documentElement.dataset.overlayMode = 'p
           </button>
           <input id="mpSearchInput" type="text" placeholder="搜索网易云音乐" autocomplete="off" spellcheck="false">
         </div>
-        <div class="mp-results" id="mpResults"></div>
+        <div class="mp-results" id="mpResults" data-scroll-surface tabindex="0" role="region" aria-label="搜索结果"></div>
       </div>
     </section>
   </div>
@@ -276,6 +263,10 @@ if (initialRole === 'overlay') document.documentElement.dataset.overlayMode = 'p
   <!-- 轻提示 -->
   <div class="toast glass-strong" id="toast" hidden></div>
 
+  <script>
+    window.W11_MEDIA_LIBRARY = { music: [], backgroundUrl: '', mediaDir: 'media' };
+  </script>
+  <script src="media/media-library.js" onerror="this.remove()"></script>
   <script src="js/main.js"></script>
   <script src="js/player.js"></script>
 </body>

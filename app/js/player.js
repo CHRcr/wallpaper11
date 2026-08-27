@@ -1,9 +1,8 @@
 /* ============================================================
    wallpaper11 · 音乐播放器（自研引擎，替代 APlayer）
-   在 main.js 之后加载（共享全局词法绑定：$ / W11_ROLE /
+   在 main.js 之后加载（共享全局词法绑定：$ /
    settings / saveSettings / toast / escapeHtml / apiBase /
-   cookieParam / registerOverlayPanel / closeOtherPanels /
-   panelClosers / powerHandlers）
+   cookieParam / closeOtherPanels / panelClosers / powerHandlers）
    ============================================================ */
 'use strict';
 
@@ -71,13 +70,7 @@ function applyMediaLibrary(library) {
 document.addEventListener('w11-media-library', (event) => applyMediaLibrary(event.detail));
 
 function resolveUrl(url) {
-  // Tauri 下本机绝对路径走自定义协议，支持音频 Range 请求与拖动进度。
-  // 普通托管预览仍保留旧的 /stream 兼容入口。
-  if (/^file:\/\//i.test(url)) {
-    const path = decodeURIComponent(url.replace(/^file:\/\//i, ''));
-    if (TAURI) return 'http://w11stream.localhost/audio?path=' + encodeURIComponent(path);
-    if (location.protocol === 'http:') return '/stream?path=' + encodeURIComponent(path);
-  }
+  // Lively WebView2 直接读取壁纸项目内的相对媒体路径。
   return url;
 }
 
@@ -126,6 +119,8 @@ const mpListOl     = $('mpListOl');
 const mpListCount  = $('mpListCount');
 const mpListClear  = $('mpListClear');
 const mpListRestore = $('mpListRestore');
+const mpListPageUp = $('mpListPageUp');
+const mpListPageDown = $('mpListPageDown');
 const mpBar        = $('mpBar');
 const mpBuf        = $('mpBuf');
 const mpPlayed     = $('mpPlayed');
@@ -329,7 +324,8 @@ function renderList() {
   mpListCount.textContent = tracks.length;
   mpListRestore.hidden = pState.removed.length === 0;
   if (!tracks.length) {
-    mpListOl.innerHTML = '<li class="mp-empty">歌单为空<br>把音乐拷入媒体文件夹后，<br>在设置里点“刷新媒体”</li>';
+    mpListOl.innerHTML = '<li class="mp-empty">歌单为空<br>把音乐放入 local-music 后，<br>运行 npm run media</li>';
+    updateListPageButtons();
     return;
   }
   mpListOl.innerHTML = tracks.map((t, i) =>
@@ -348,7 +344,23 @@ function renderList() {
       mpListOl.scrollTop = playingRow.offsetTop - listH / 2;
     }
   }
+  requestAnimationFrame(updateListPageButtons);
 }
+
+function updateListPageButtons() {
+  const max = Math.max(0, mpListOl.scrollHeight - mpListOl.clientHeight);
+  mpListPageUp.disabled = mpListOl.scrollTop <= 1;
+  mpListPageDown.disabled = max <= 1 || mpListOl.scrollTop >= max - 1;
+}
+
+function scrollListPage(direction) {
+  const distance = Math.max(160, Math.round(mpListOl.clientHeight * 0.78));
+  mpListOl.scrollBy({ top: direction * distance, behavior: 'smooth' });
+}
+
+mpListPageUp.addEventListener('click', () => scrollListPage(-1));
+mpListPageDown.addEventListener('click', () => scrollListPage(1));
+mpListOl.addEventListener('scroll', updateListPageButtons, { passive: true });
 
 mpListOl.addEventListener('click', (e) => {
   const del = e.target.closest('.mp-item-del');
@@ -525,24 +537,15 @@ function applyDrawer() {
   musicPanel.classList.toggle('show-list', pState.drawer === 'list');
   $('mpLyricsToggle').classList.toggle('active', pState.drawer === 'lyrics');
   $('mpListToggle').classList.toggle('active', pState.drawer === 'list');
-  syncMusicOverlaySize();
-}
-
-function syncMusicOverlaySize() {
-  if (musicMask.hidden) return;
-  const expanded = musicPanel.classList.contains('drawer-open') ||
-    musicPanel.classList.contains('search-open');
-  registerOverlayPanel(expanded ? 'music-expanded' : 'music');
+  if (pState.drawer === 'list') requestAnimationFrame(updateListPageButtons);
 }
 
 /* ---------- 面板开关 ---------- */
 
 function openMusic() {
-  if (W11_ROLE === 'wallpaper') return;    // 壁纸层无面板
   if (!musicMask.hidden) return;
   closeOtherPanels(musicMask);
   musicMask.hidden = false;
-  syncMusicOverlaySize();
   if (cur === -1 && pState.last >= 0 && pState.last < tracks.length) {
     playIndex(pState.last, false);   // 恢复上次曲目但不自动播放
   }
@@ -551,7 +554,6 @@ function closeMusic() {
   if (musicMask.hidden) return;
   musicMask.hidden = true;
   toggleMusicSearch(false);
-  registerOverlayPanel(null);
 }
 
 panelClosers.push({ el: musicMask, close: closeMusic });
@@ -576,7 +578,6 @@ function toggleMusicSearch(open) {
   const target = open !== undefined ? open : mpSearch.hidden;
   mpSearch.hidden = !target;
   musicPanel.classList.toggle('search-open', target);
-  syncMusicOverlaySize();
   if (target) mpInput.focus();
   else { mpInput.value = ''; mpResults.innerHTML = ''; lastResults = []; }
 }
@@ -657,7 +658,7 @@ async function playNetease(song) {
   } catch { toast('播放失败'); }
 }
 
-/* ---------- 省电：宿主要求暂停/恢复（全屏程序时静音） ---------- */
+/* ---------- 省电：Lively 暂停/恢复壁纸时同步音乐 ---------- */
 
 let powerWasPlaying = false;
 
