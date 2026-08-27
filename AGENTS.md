@@ -51,9 +51,9 @@
   - API 地址是设置项（默认 `http://127.0.0.1:16311`）；**VIP**：设置里填"网易云 Cookie"（MUSIC_U），页面经 `?cookie=` 传参（NeteaseCloudMusicApi 自带能力），无损音质生效；不填则 VIP 歌只有 128k 试听
   - 网易云的 http 直链/封面一律 `replace(/^http:/,'https:')` 升级，避免混合内容
   - 播放器状态存于 `w11-player`：音量、循环模式、上次曲目、抽屉状态、网易云收藏和已移除歌曲
-- 性能：`visibilitychange` 暂停视频；设置可彻底冻结
+- 性能：浏览器预览在页面不可见时暂停视频；宿主以显式电源状态控制 WorkerW 中的视频；设置可彻底冻结；前台出现其他应用窗口时宿主暂停壁纸
 - 调试钩子：`?hw=1` 直接打开作业板；`?music=1` 直接打开音乐面板
-- Tauri 2 宿主基础（`host/`）：WorkerW 壁纸窗口 + 透明 overlay 窗口；overlay 平时为底部工具条小窗，面板打开才全屏；托盘设置/暂停/退出；单实例；官方 autostart 插件；`SHQueryUserNotificationState` 全屏/演示/锁屏暂停（排除自身 overlay，外部全屏时隐藏工具条）；`w11stream://` 为 `media/` 中的本机音频/视频提供 Range 读取；Windows Actions 输出便携 zip
+- Tauri 2 宿主基础（`host/`）：WorkerW 壁纸窗口 + 透明 overlay 窗口；overlay 只占工具条或当前卡片的实际边界，不再全屏/置顶，不阻挡桌面其余区域与其他软件；托盘设置/暂停/退出；单实例；官方 autostart 插件；检测前台活动窗口，其他应用窗口位于前台时暂停壁纸并隐藏工具条（排除自身窗口与 Windows 桌面层）；`w11stream://` 为 `media/` 中的本机音频/视频提供 Range 读取；Windows Actions 输出便携 zip
 
 ## 四、待办（按优先级）
 
@@ -64,7 +64,6 @@
 
 ## 五、与用户协作的约定（重要）
 
-- **不要截图验证**：效果由用户亲眼看。改完直接说明即可
 - **UI 文案克制**：不要"修改即时生效并自动保存"这类冗余描述；不要鸡汤
 - 改样式先看 `:root` 设计令牌，保持暮色暖金体系
 - 性能预算：动画只用 transform/opacity；新组件先想低配一体机跑不跑得动
@@ -76,4 +75,5 @@
 - `file://` 协议下 `fetch()` 相对路径被禁 → 测试加载资源用 `<img>`/`<script>` 标签，或接受内嵌兜底
 - PS 5.1 把**无 BOM 的 UTF-8 脚本**按 GBK 读，中文路径直接乱码 → `tools/*.ps1` 必须保存为 **UTF-8 带 BOM**
 - 网易云官方 API 没有 CORS 头、且浏览器禁止 JS 手动设 Cookie → 页面**必须走本地代理**（NeteaseCloudMusicApi）；`?cookie=` 传参是它自带的能力，别自己转发 Cookie 头
-- Edge 无头截图：`--headless=new --screenshot=... --window-size=1920,1080 --virtual-time-budget=6000`（用户已要求少用）
+- 新版 Windows 11 的全屏壁纸 `WorkerW` 可能是 `Progman` 的**子窗口**，不是旧教程中的顶层兄弟窗口；宿主必须优先查找子 `WorkerW`，否则窗口会被系统静态壁纸盖住
+- Edge 无头截图：`--headless=new --screenshot=... --window-size=1920,1080 --virtual-time-budget=6000`

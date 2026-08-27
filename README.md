@@ -31,12 +31,12 @@
   - 持久化键 `w11-player`（音量/模式/上次歌曲/网易云收藏/已移除）
 - **设置面板**：高考日期/标题、切词间隔、制式、秒、背景视频、界面缩放、音乐 API、网易云 Cookie，全部即时生效并持久化（`w11-settings`）；宿主运行时可打开媒体文件夹、刷新媒体、手动检查更新并跳转 GitHub 项目
 - **低调工具栏**：平时半透明靠近浮现，44~46px 触屏按钮，含音乐/作业/设置
-- **性能**：`visibilitychange` 冻结视频；设置可彻底冻结为静态帧
+- **性能**：浏览器预览在页面不可见时冻结视频；设置可彻底冻结为静态帧；其他应用窗口位于前台时宿主自动暂停壁纸
 - **角色拆分 + 宿主桥**：页面支持 `?role=wallpaper | overlay` 双窗口模式（wallpaper=纯壁纸层 / overlay=工具条+面板层），已为 Tauri 宿主做好接口（`set_overlay_mode`、`__w11Power` 暂停钩子、面板计数互斥、跨窗 `storage` 同步），设置面板有隐藏的宿主功能区（开机自启/检查更新/退出，宿主存在时显示）
 - **Windows/Tauri 宿主基础**（`host/`）：
-  - 双窗口：壁纸层嵌入 WorkerW；透明交互层平时缩成底部工具栏，打开播放器/设置/作业时才铺满主屏
+  - 双窗口：壁纸层嵌入 WorkerW；透明交互层只占工具栏或当前卡片的实际边界，非置顶且不会用整屏透明窗口拦截桌面点击
   - 托盘打开设置、暂停/继续、退出；官方插件实现单实例与当前用户开机自启
-  - 每 2 秒读取 `SHQueryUserNotificationState`（排除宿主自己的全屏 overlay），外部全屏、演示或锁屏时收起交互层并通过 `__w11Power(false)` 同时暂停视频与音乐
+  - 每 2 秒检测 Windows 前台活动窗口（排除宿主自身与桌面层），普通窗口、最大化窗口或全屏窗口位于前台时收起交互层，并通过 `__w11Power(false)` 同时暂停视频与音乐
   - Tauri 自定义 `w11stream://` 协议读取 `media/` 中的本机音乐和视频，支持 HTTP Range、拖动进度和视频流播放
   - 关闭 Tauri 原生文件拖放处理，保留作业图片的 HTML5 触控/鼠标拖入逻辑
   - GitHub Actions 输出可解压的便携 zip：`wallpaper11.exe` 与独立的 `media/music`、`media/video` 文件夹，不打包版权视频或音乐
@@ -60,7 +60,7 @@
 - **网易云代理**在 `tools/netease-api/`（`start.bat` 启动，端口 16311 只监听 127.0.0.1）；VIP 需要 Cookie `MUSIC_U`，**只粘贴值会自动补 `MUSIC_U=`**（已修复）
 - **坑**：`[hidden]` 会被 display:grid/flex 覆盖（CSS 有 `[hidden]{display:none!important}` 别删）；`file://` 下 `fetch` 受限用 `<script>`/`<img>`；`tools/*.ps1` 必须 UTF-8 带 BOM 否则中文乱码；网易云 API 无 CORS 必须走本地代理，`?cookie=` 是它自带能力别自己转发 Cookie 头
 - **改样式先看 `style.css :root` 设计令牌**，保持暮色暖金体系；性能预算：动画只用 transform/opacity；触屏优先，点击目标 ≥44px，核心功能不依赖悬停
-- **测试**：浏览器直接打开 `app/index.html` 即可，不要在开发时用截图验证——效果给你亲眼看
+- **测试**：浏览器直接打开 `app/index.html` 即可；宿主行为需在 Windows 实机验证
 
 ---
 

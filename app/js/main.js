@@ -48,11 +48,11 @@ function tInvoke(cmd, args) {
   return TAURI.core.invoke(cmd, args);
 }
 
-// 面板开/关计数：overlay 窗口据此切换 面板尺寸 ↔ 工具条药丸
-let openPanels = 0;
-function registerOverlayPanel(open) {
-  openPanels = Math.max(0, openPanels + (open ? 1 : -1));
-  if (TAURI) tInvoke('set_overlay_mode', { mode: openPanels > 0 ? 'panel' : 'pill' }).catch(() => {});
+// Tauri 的透明窗口只覆盖当前控件的实际区域，不能用整屏透明窗挡住桌面点击。
+function registerOverlayPanel(mode) {
+  const next = mode || 'pill';
+  document.documentElement.dataset.overlayMode = next;
+  if (TAURI) tInvoke('set_overlay_mode', { mode: next }).catch(() => {});
 }
 
 // 面板互斥：同时只开一个（player.js 会把音乐面板也注册进来）
@@ -66,7 +66,16 @@ window.__w11ClosePanels = () => closeOtherPanels(null);
 
 // 省电钩子：宿主检测到全屏程序 / 托盘暂停时调用 window.__w11Power(false)
 const powerHandlers = [];
-window.__w11Power = (run) => powerHandlers.forEach((fn) => fn(run));
+let powerRunning = true;
+window.__w11Power = (run) => {
+  powerRunning = !!run;
+  powerHandlers.forEach((fn) => fn(powerRunning));
+};
+window.__w11PowerRunning = () => powerRunning;
+
+function runtimeLog(message) {
+  if (TAURI) tInvoke('runtime_log', { message: W11_ROLE + ': ' + message }).catch(() => {});
+}
 
 /* ---------- Toast ---------- */
 
@@ -310,7 +319,7 @@ function openHomework() {
   homeworkMask.hidden = false;
   document.body.classList.add('hw-open');
   bgVideo.pause();                    // 背景静止，减少干扰
-  registerOverlayPanel(true);
+  registerOverlayPanel('homework');
 }
 function closeHomework() {
   if (homeworkMask.hidden) return;
@@ -318,7 +327,7 @@ function closeHomework() {
   hwBody.classList.remove('dragover');
   document.body.classList.remove('hw-open');
   applyBgMode();                      // 按设置恢复视频
-  registerOverlayPanel(false);
+  registerOverlayPanel(null);
 }
 
 /* 面板尺寸适配图片比例 */
@@ -434,13 +443,13 @@ function openSettings() {
   $('setMusicApi').value = settings.musicApi;
   $('setMusicCookie').value = settings.musicCookie;
   settingsMask.hidden = false;
-  registerOverlayPanel(true);
+  registerOverlayPanel('settings');
 }
 
 function closeSettings() {
   if (settingsMask.hidden) return;
   settingsMask.hidden = true;
-  registerOverlayPanel(false);
+  registerOverlayPanel(null);
 }
 
 panelClosers.push({ el: homeworkMask, close: closeHomework });
@@ -526,6 +535,8 @@ async function refreshMediaLibrary(options = {}) {
     const library = await tInvoke('get_media_library');
     window.W11_MEDIA_LIBRARY = library;
     updateMediaStatus(library);
+    runtimeLog('media scan music=' + (library.music || []).length +
+      ' video=' + (library.backgroundUrl || 'none') + ' root=' + library.mediaDir);
 
     if (W11_ROLE !== 'overlay') {
       const source = library.backgroundUrl || '';
@@ -545,7 +556,8 @@ async function refreshMediaLibrary(options = {}) {
     }
     if (!options.silent) toast('媒体库已刷新');
     return library;
-  } catch {
+  } catch (error) {
+    runtimeLog('media scan failed: ' + error);
     if (!options.silent) toast('媒体库读取失败');
     return null;
   }
@@ -555,12 +567,33 @@ window.w11RefreshMediaLibrary = refreshMediaLibrary;
 
 function applyBgMode() {
   if (W11_ROLE === 'overlay') return;   // 工具条层没有视频
-  if (settings.bgMode === 'pause' || document.hidden) {
+  if (!bgVideo.dataset.mediaSource) {
+    bgVideo.pause();
+    return;
+  }
+  // WorkerW 中的 WebView2 即使肉眼可见，也可能把 document.hidden 报为 true。
+  // 宿主模式只由显式 power state 控制；浏览器预览才使用 Visibility API。
+  const visibilityPaused = !TAURI && document.hidden;
+  if (settings.bgMode === 'pause' || visibilityPaused || !powerRunning) {
     bgVideo.pause();               // 冻结当前帧 = 静态壁纸，最省性能
   } else {
-    bgVideo.play().catch(() => {});
+    bgVideo.play().catch((error) => runtimeLog('video play rejected: ' + error.message));
   }
 }
+
+bgVideo.addEventListener('loadedmetadata', () => {
+  runtimeLog('video metadata duration=' + bgVideo.duration + ' src=' + bgVideo.currentSrc);
+  applyBgMode();
+});
+bgVideo.addEventListener('loadeddata', () => {
+  runtimeLog('video first frame ready');
+  applyBgMode();
+});
+bgVideo.addEventListener('playing', () => runtimeLog('video playing'));
+bgVideo.addEventListener('error', () => {
+  const code = bgVideo.error ? bgVideo.error.code : 0;
+  runtimeLog('video error code=' + code + ' src=' + bgVideo.currentSrc);
+});
 
 // overlay 角色：视频元素不加载（窗口透明，纯工具条）
 if (W11_ROLE === 'overlay') {
@@ -568,7 +601,7 @@ if (W11_ROLE === 'overlay') {
   bgVideo.load();
 }
 
-// 宿主要求暂停/恢复（全屏程序出现时冻结视频）
+// 宿主要求暂停/恢复（其他应用窗口位于前台时冻结视频）
 powerHandlers.push((run) => {
   if (W11_ROLE === 'overlay') return;
   if (run) applyBgMode(); else bgVideo.pause();
@@ -616,7 +649,7 @@ $('btnOpenProject').addEventListener('click', (e) => {
 /* ---------- 性能：页面不可见时全部停摆 ---------- */
 
 document.addEventListener('visibilitychange', () => {
-  applyBgMode();
+  if (!TAURI) applyBgMode();
   // setInterval 在页面隐藏时浏览器会自动限流，无需额外处理
 });
 
@@ -631,6 +664,11 @@ updateCountdown();
 loadHomework();
 applyBgMode();
 if (TAURI) refreshMediaLibrary({ silent: true });
+if (TAURI) {
+  tInvoke('get_power_state').then((run) => window.__w11Power(run)).catch(() => {});
+  // 防止桌面底层 WebView2 因长期不在前台而冻结/卸载页面。
+  navigator.locks?.request('wallpaper11-runtime', () => new Promise(() => {})).catch(() => {});
+}
 
 // 调试钩子：?hw=1 直接打开作业板（?music=1 由 player.js 处理）
 const debugParams = new URLSearchParams(location.search);

@@ -628,7 +628,7 @@ html[data-role="overlay"] .bg-fallback { display: none !important; }
 html[data-role="overlay"],
 html[data-role="overlay"] body { background: transparent; }
 
-/* overlay 角色：窗口就是药丸，工具条铺满居中；面板打开时窗口已被宿主放大 */
+/* overlay 角色：原生透明窗只覆盖工具栏或当前卡片本身，空白区域不拦桌面点击。 */
 html[data-role="overlay"] .toolbar {
   left: 50%;
   bottom: 50%;
@@ -637,6 +637,18 @@ html[data-role="overlay"] .toolbar {
   opacity: 1;
 }
 html[data-role="overlay"] .toast { left: 50%; bottom: 12px; }
+html[data-role="overlay"] .overlay {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html[data-role="overlay"][data-overlay-mode]:not([data-overlay-mode="pill"]) .toolbar {
+  display: none !important;
+}
+html[data-role="overlay"][data-overlay-mode^="music"] .music-dock {
+  top: 24px;
+  right: 24px;
+}
 
 /* ---------- 音乐播放器：右上角暖金卡片 ---------- */
 

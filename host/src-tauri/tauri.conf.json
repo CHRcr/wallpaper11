@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "identifier": "cn.chrcr.wallpaper11",
   "build": {
+    "beforeDevCommand": "node ../tools/dev-server.js",
+    "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../../app"
   },
   "app": {

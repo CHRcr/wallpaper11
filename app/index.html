@@ -6,8 +6,10 @@
 <meta name="color-scheme" content="dark">
 <title>wallpaper11</title>
 <script>
-/* 角色必须在首帧前确定：wallpaper=纯壁纸层 / overlay=工具条+面板层 / all=浏览器完整模式 */
-document.documentElement.dataset.role = new URLSearchParams(location.search).get('role') || 'all';
+/* 角色和控件窗初态必须在 CSS 首帧前确定，避免工具栏被误判成面板模式。 */
+const initialRole = new URLSearchParams(location.search).get('role') || 'all';
+document.documentElement.dataset.role = initialRole;
+if (initialRole === 'overlay') document.documentElement.dataset.overlayMode = 'pill';
 </script>
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -15,7 +17,7 @@ document.documentElement.dataset.role = new URLSearchParams(location.search).get
 
   <!-- 背景：用户媒体库的视频 + 兜底渐变 -->
   <div class="bg-fallback" aria-hidden="true"></div>
-  <video id="bgVideo" class="bg-video" autoplay muted loop playsinline preload="metadata"></video>
+  <video id="bgVideo" class="bg-video" autoplay muted loop playsinline preload="auto"></video>
 
   <!-- 主舞台（左留 22% 避开系统图标列） -->
   <main class="stage" id="stage">

@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::{
     fs::{self, File},
     io::{Read, Seek, SeekFrom},
@@ -7,7 +8,6 @@ use std::{
     thread,
     time::Duration,
 };
-use serde::Serialize;
 
 use http::{
     header::{
@@ -19,14 +19,26 @@ use http::{
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_autostart::ManagerExt;
 
-const PILL_WIDTH: u32 = 168;
-const PILL_HEIGHT: u32 = 72;
+// 工具栏本体约 160×60 CSS px；窗口需覆盖最高 140% 的界面缩放，避免 WebView 裁切。
+const PILL_WIDTH: u32 = 240;
+const PILL_HEIGHT: u32 = 104;
+const MUSIC_WIDTH: u32 = 520;
+const MUSIC_HEIGHT: u32 = 304;
+const MUSIC_EXPANDED_HEIGHT: u32 = 640;
+const SETTINGS_WIDTH: u32 = 500;
+const SETTINGS_HEIGHT: u32 = 820;
+const HOMEWORK_WIDTH: u32 = 920;
+const HOMEWORK_HEIGHT: u32 = 900;
 const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus"];
 const VIDEO_EXTENSIONS: &[&str] = &["mp4", "webm", "mov", "m4v"];
+
+fn media_probe_enabled() -> bool {
+    cfg!(debug_assertions) && std::env::var_os("W11_MEDIA_PROBE").is_some()
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,7 +83,9 @@ fn extension_in(path: &Path, allowed: &[&str]) -> bool {
 }
 
 fn collect_media_files(dir: &Path, allowed: &[&str], files: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(dir) else { return };
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
@@ -96,9 +110,24 @@ fn split_track_name(path: &Path) -> (String, String) {
     }
 }
 
+fn decode_text_file(bytes: &[u8]) -> String {
+    let bytes = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
+    match std::str::from_utf8(bytes) {
+        Ok(text) => text.to_string(),
+        Err(_) => {
+            // 教室音乐库常见由旧版 Windows 软件导出的 GBK/ANSI LRC。
+            let (text, _, _) = encoding_rs::GBK.decode(bytes);
+            text.into_owned()
+        }
+    }
+}
+
 fn media_stream_url(path: &Path, kind: &str) -> String {
     let mut query = url::form_urlencoded::Serializer::new(String::new());
     query.append_pair("path", &path.to_string_lossy());
+    #[cfg(windows)]
+    return format!("http://w11stream.localhost/{kind}?{}", query.finish());
+    #[cfg(not(windows))]
     format!("w11stream://localhost/{kind}?{}", query.finish())
 }
 
@@ -119,7 +148,7 @@ fn scan_media_library() -> Result<MediaLibrary, String> {
             let (name, artist) = split_track_name(&path);
             let lrc_path = path.with_extension("lrc");
             let lrc = fs::read(&lrc_path)
-                .map(|bytes| String::from_utf8_lossy(&bytes).trim_start_matches('\u{feff}').to_string())
+                .map(|bytes| decode_text_file(&bytes))
                 .unwrap_or_default();
             MediaTrack {
                 name,
@@ -176,11 +205,10 @@ fn notify_power(app: &AppHandle) {
     }
 
     if let Some(overlay) = app.get_webview_window("overlay") {
-        if run {
-            let _ = resize_overlay(app, "pill");
-        } else {
-            let _ = overlay.hide();
-        }
+        // 控件窗不是置顶窗口，普通应用会自然盖住它。只收起到工具栏即可，
+        // 不再因开发终端/其他前台窗口而 hide，避免回到桌面后工具栏丢失。
+        let _ = resize_overlay(app, "pill");
+        let _ = overlay.show();
     }
 }
 
@@ -191,44 +219,78 @@ fn set_manual_paused(app: &AppHandle, paused: bool) {
     notify_power(app);
 }
 
-fn primary_geometry(app: &AppHandle) -> Result<(PhysicalPosition<i32>, PhysicalSize<u32>), String> {
+#[tauri::command]
+fn get_power_state(app: AppHandle) -> bool {
+    let state = app.state::<HostState>();
+    !state.manual_paused.load(Ordering::Relaxed) && !state.system_paused.load(Ordering::Relaxed)
+}
+
+#[tauri::command]
+fn runtime_log(message: String) {
+    #[cfg(debug_assertions)]
+    eprintln!("[wallpaper11:web] {message}");
+    #[cfg(not(debug_assertions))]
+    let _ = message;
+}
+
+fn primary_monitor(app: &AppHandle) -> Result<tauri::Monitor, String> {
     let monitor = app
         .primary_monitor()
         .map_err(|error| error.to_string())?
         .ok_or_else(|| "未找到主显示器".to_string())?;
-    Ok((*monitor.position(), *monitor.size()))
+    Ok(monitor)
 }
 
 fn resize_overlay(app: &AppHandle, mode: &str) -> Result<(), String> {
     let overlay = app
         .get_webview_window("overlay")
         .ok_or_else(|| "交互窗口尚未创建".to_string())?;
-    let (origin, size) = primary_geometry(app)?;
+    let monitor = primary_monitor(app)?;
+    let work = monitor.work_area();
+    let scale = monitor.scale_factor();
+    let monitor_origin = monitor.position();
+    let work_x = f64::from(work.position.x - monitor_origin.x) / scale;
+    let work_y = f64::from(work.position.y - monitor_origin.y) / scale;
+    let work_width = f64::from(work.size.width) / scale;
+    let work_height = f64::from(work.size.height) / scale;
+    let max_width = (work_width - 16.0).max(240.0);
+    let max_height = (work_height - 16.0).max(104.0);
 
-    match mode {
-        "panel" => {
-            overlay
-                .set_position(origin)
-                .map_err(|error| error.to_string())?;
-            overlay
-                .set_size(size)
-                .map_err(|error| error.to_string())?;
-            let _ = overlay.show();
-            let _ = overlay.set_focus();
-        }
-        "pill" => {
-            let center_x = origin.x + (f64::from(size.width) * 0.61).round() as i32;
-            let x = center_x - PILL_WIDTH as i32 / 2;
-            let y = origin.y + size.height as i32 - PILL_HEIGHT as i32 - 22;
-            overlay
-                .set_size(PhysicalSize::new(PILL_WIDTH, PILL_HEIGHT))
-                .map_err(|error| error.to_string())?;
-            overlay
-                .set_position(PhysicalPosition::new(x, y))
-                .map_err(|error| error.to_string())?;
-            let _ = overlay.show();
-        }
+    let (wanted_width, wanted_height, anchor) = match mode {
+        "pill" => (PILL_WIDTH, PILL_HEIGHT, "pill"),
+        "music" => (MUSIC_WIDTH, MUSIC_HEIGHT, "top-right"),
+        "music-expanded" => (MUSIC_WIDTH, MUSIC_EXPANDED_HEIGHT, "top-right"),
+        "settings" => (SETTINGS_WIDTH, SETTINGS_HEIGHT, "center"),
+        "homework" => (HOMEWORK_WIDTH, HOMEWORK_HEIGHT, "center"),
         _ => return Err("未知的交互窗口模式".to_string()),
+    };
+    let width = f64::from(wanted_width).min(max_width);
+    let height = f64::from(wanted_height).min(max_height);
+    let margin = 18.0;
+    let (x, y) = match anchor {
+        "pill" => {
+            let center_x = work_x + work_width * 0.61;
+            (
+                center_x - width / 2.0,
+                work_y + work_height - height - margin,
+            )
+        }
+        "top-right" => (work_x + work_width - width - margin, work_y + margin),
+        _ => (
+            work_x + (work_width - width) / 2.0,
+            work_y + (work_height - height) / 2.0,
+        ),
+    };
+
+    overlay
+        .set_size(LogicalSize::new(width, height))
+        .map_err(|error| error.to_string())?;
+    overlay
+        .set_position(LogicalPosition::new(x, y))
+        .map_err(|error| error.to_string())?;
+    let _ = overlay.show();
+    if mode != "pill" {
+        let _ = overlay.set_focus();
     }
 
     Ok(())
@@ -241,7 +303,9 @@ fn set_overlay_mode(app: AppHandle, mode: String) -> Result<(), String> {
 
 #[tauri::command]
 fn get_autostart(app: AppHandle) -> Result<bool, String> {
-    app.autolaunch().is_enabled().map_err(|error| error.to_string())
+    app.autolaunch()
+        .is_enabled()
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -296,8 +360,8 @@ fn exit_app(app: AppHandle) {
 }
 
 fn open_settings(app: &AppHandle) {
-    let _ = resize_overlay(app, "panel");
     if let Some(overlay) = app.get_webview_window("overlay") {
+        let _ = overlay.show();
         let _ = overlay.eval("document.getElementById('btnSettings')?.click();");
     }
 }
@@ -368,36 +432,51 @@ fn build_windows(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .visible(false)
     .build()?;
 
-    let overlay = WebviewWindowBuilder::new(
-        app,
-        "overlay",
-        WebviewUrl::App("index.html?role=overlay".into()),
-    )
-    .title("wallpaper11 controls")
-    .decorations(false)
-    .resizable(false)
-    .transparent(true)
-    .shadow(false)
-    .skip_taskbar(true)
-    .always_on_top(true)
-    .disable_drag_drop_handler()
-    .inner_size(PILL_WIDTH as f64, PILL_HEIGHT as f64)
-    .build()?;
-
-    #[cfg(windows)]
-    windows_host::embed_in_workerw(&wallpaper)?;
+    let overlay_url = if media_probe_enabled() {
+        "index.html?role=overlay&music=1&autoplay=1"
+    } else {
+        "index.html?role=overlay"
+    };
+    let overlay = WebviewWindowBuilder::new(app, "overlay", WebviewUrl::App(overlay_url.into()))
+        .title("wallpaper11 controls")
+        .decorations(false)
+        .resizable(false)
+        .transparent(true)
+        .shadow(false)
+        .skip_taskbar(true)
+        // 普通应用窗口应自然盖住壁纸控件；交互层不占用系统级置顶层级。
+        .always_on_top(false)
+        .disable_drag_drop_handler()
+        .inner_size(PILL_WIDTH as f64, PILL_HEIGHT as f64)
+        .build()?;
 
     wallpaper.show()?;
+    overlay.show()?;
+
+    // Tauri 的 show/窗口初始化可能恢复顶层样式，因此 WorkerW 嵌入必须是
+    // wallpaper 窗口创建与显示完成后的最后一步。
+    #[cfg(windows)]
+    {
+        windows_host::embed_in_workerw(&wallpaper)?;
+        windows_host::embed_overlay_in_desktop(&overlay)?;
+    }
     let _ = resize_overlay(app.handle(), "pill");
-    let _ = overlay.show();
     Ok(())
 }
 
 fn start_power_monitor(app: AppHandle) {
+    if media_probe_enabled() {
+        return;
+    }
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(2));
         #[cfg(windows)]
-        let paused = windows_host::should_pause_for_windows();
+        let paused = {
+            if let Some(window) = app.get_webview_window("wallpaper") {
+                let _ = windows_host::fit_wallpaper_to_desktop(&window);
+            }
+            windows_host::should_pause_for_foreground_window()
+        };
         #[cfg(not(windows))]
         let paused = false;
 
@@ -515,17 +594,19 @@ mod windows_host {
 
     use tauri::WebviewWindow;
     use windows_sys::Win32::{
-        Foundation::{HWND, LPARAM, RECT},
+        Foundation::{HWND, LPARAM, POINT, RECT},
+        Graphics::Gdi::ClientToScreen,
         UI::{
-            Shell::{
-                SHQueryUserNotificationState, QUNS_BUSY, QUNS_NOT_PRESENT,
-                QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN,
-            },
+            HiDpi::{GetWindowDpiAwarenessContext, SetThreadDpiAwarenessContext},
             WindowsAndMessaging::{
-                EnumWindows, FindWindowExW, FindWindowW, GetClientRect, GetForegroundWindow,
-                GetWindowLongPtrW, GetWindowThreadProcessId, SendMessageTimeoutW, SetParent,
-                SetWindowLongPtrW, SetWindowPos, GWL_STYLE, HWND_BOTTOM, SMTO_NORMAL,
-                SWP_NOACTIVATE, SWP_SHOWWINDOW, WS_CHILD, WS_POPUP,
+                EnumWindows, FindWindowExW, FindWindowW, GetClassNameW, GetClientRect,
+                GetForegroundWindow, GetParent, GetWindowLongPtrW, GetWindowRect,
+                GetWindowThreadProcessId, SendMessageTimeoutW, SetParent, SetWindowLongPtrW,
+                SetWindowPos, GWL_EXSTYLE, GWL_STYLE, HWND_BOTTOM, HWND_TOP, SMTO_NORMAL,
+                SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+                WS_CAPTION, WS_CHILD, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE,
+                WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
+                WS_THICKFRAME,
             },
         },
     };
@@ -534,7 +615,7 @@ mod windows_host {
         value.encode_utf16().chain(iter::once(0)).collect()
     }
 
-    unsafe extern "system" fn find_worker(hwnd: HWND, output: LPARAM) -> i32 {
+    unsafe extern "system" fn find_wallpaper_host(hwnd: HWND, output: LPARAM) -> i32 {
         let shell_view = FindWindowExW(
             hwnd,
             ptr::null_mut(),
@@ -542,21 +623,17 @@ mod windows_host {
             ptr::null(),
         );
         if !shell_view.is_null() {
-            let worker = FindWindowExW(
-                ptr::null_mut(),
-                hwnd,
-                wide("WorkerW").as_ptr(),
-                ptr::null(),
-            );
-            if !worker.is_null() {
-                *(output as *mut HWND) = worker;
-                return 0;
-            }
+            // Windows 动态壁纸的目标是桌面图标宿主之后的 WorkerW：它位于
+            // SHELLDLL_DefView（图标）下方、系统静态壁纸上方。
+            let worker =
+                FindWindowExW(ptr::null_mut(), hwnd, wide("WorkerW").as_ptr(), ptr::null());
+            *(output as *mut HWND) = if worker.is_null() { hwnd } else { worker };
+            return 0;
         }
         1
     }
 
-    unsafe fn workerw() -> Option<HWND> {
+    unsafe fn desktop_host() -> Option<HWND> {
         let progman = FindWindowW(wide("Progman").as_ptr(), ptr::null());
         if progman.is_null() {
             return None;
@@ -566,59 +643,176 @@ mod windows_host {
         let _ = SendMessageTimeoutW(progman, 0x052C, 0xD, 0, SMTO_NORMAL, 1000, &mut result);
         let _ = SendMessageTimeoutW(progman, 0x052C, 0xD, 1, SMTO_NORMAL, 1000, &mut result);
 
-        let mut worker: HWND = ptr::null_mut();
-        EnumWindows(Some(find_worker), &mut worker as *mut HWND as LPARAM);
-        (!worker.is_null()).then_some(worker).or(Some(progman))
+        // Windows 11 新版 Explorer 会把全屏 WorkerW 作为 Progman 的子窗口，
+        // 而不是旧方案中的顶层兄弟窗口。它位于 SHELLDLL_DefView（桌面图标）
+        // 下方，正是动态壁纸应挂载的层。
+        let child_worker = FindWindowExW(
+            progman,
+            ptr::null_mut(),
+            wide("WorkerW").as_ptr(),
+            ptr::null(),
+        );
+        if !child_worker.is_null() {
+            return Some(child_worker);
+        }
+
+        let mut host: HWND = ptr::null_mut();
+        EnumWindows(Some(find_wallpaper_host), &mut host as *mut HWND as LPARAM);
+        (!host.is_null()).then_some(host).or(Some(progman))
+    }
+
+    unsafe fn make_borderless_child(hwnd: HWND) -> (isize, isize) {
+        let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+        let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        let frame_style =
+            WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP;
+        let frame_ex_style =
+            WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE;
+        SetWindowLongPtrW(
+            hwnd,
+            GWL_STYLE,
+            (style & !(frame_style as isize)) | WS_CHILD as isize,
+        );
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style & !(frame_ex_style as isize));
+        (style, ex_style)
+    }
+
+    unsafe fn attach_child(hwnd: HWND, parent: HWND) -> anyhow::Result<()> {
+        let (style, ex_style) = make_borderless_child(hwnd);
+        let parent_dpi = GetWindowDpiAwarenessContext(parent);
+        let previous_dpi = if parent_dpi.is_null() {
+            ptr::null_mut()
+        } else {
+            SetThreadDpiAwarenessContext(parent_dpi)
+        };
+        SetParent(hwnd, parent);
+        if !previous_dpi.is_null() {
+            SetThreadDpiAwarenessContext(previous_dpi);
+        }
+        if GetParent(hwnd) != parent {
+            SetWindowLongPtrW(hwnd, GWL_STYLE, style);
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
+            return Err(anyhow::anyhow!("failed to attach window to desktop host"));
+        }
+        Ok(())
     }
 
     pub fn embed_in_workerw(window: &WebviewWindow) -> anyhow::Result<()> {
         let raw = window.hwnd()?;
         let hwnd = raw.0 as *mut c_void;
-        let parent = unsafe { workerw() }.ok_or_else(|| anyhow::anyhow!("WorkerW not found"))?;
+        let parent =
+            unsafe { desktop_host() }.ok_or_else(|| anyhow::anyhow!("desktop host not found"))?;
 
+        unsafe { attach_child(hwnd, parent)? };
+        fit_wallpaper_to_desktop(window)
+    }
+
+    pub fn embed_overlay_in_desktop(window: &WebviewWindow) -> anyhow::Result<()> {
+        let raw = window.hwnd()?;
+        let hwnd = raw.0 as *mut c_void;
+        let progman = unsafe { FindWindowW(wide("Progman").as_ptr(), ptr::null()) };
+        if progman.is_null() {
+            return Err(anyhow::anyhow!("Progman not found"));
+        }
         unsafe {
-            let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-            let child_style = (style & !(WS_POPUP as isize)) | WS_CHILD as isize;
-            SetWindowLongPtrW(hwnd, GWL_STYLE, child_style);
-            SetParent(hwnd, parent);
-
-            let mut rect = RECT::default();
-            if GetClientRect(parent, &mut rect) == 0 {
-                return Err(anyhow::anyhow!("WorkerW size unavailable"));
-            }
-            SetWindowPos(
+            attach_child(hwnd, progman)?;
+            if SetWindowPos(
                 hwnd,
-                HWND_BOTTOM,
+                HWND_TOP,
                 0,
                 0,
-                rect.right - rect.left,
-                rect.bottom - rect.top,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            );
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED,
+            ) == 0
+            {
+                return Err(anyhow::anyhow!(
+                    "failed to order overlay above desktop icons"
+                ));
+            }
         }
         Ok(())
     }
 
-    pub fn should_pause_for_windows() -> bool {
-        let foreground = unsafe { GetForegroundWindow() };
-        if !foreground.is_null() {
-            let mut process_id = 0;
-            unsafe { GetWindowThreadProcessId(foreground, &mut process_id) };
-            if process_id == std::process::id() {
-                return false;
+    pub fn fit_wallpaper_to_desktop(window: &WebviewWindow) -> anyhow::Result<()> {
+        let raw = window.hwnd()?;
+        let hwnd = raw.0 as *mut c_void;
+        unsafe {
+            let parent = GetParent(hwnd);
+            if parent.is_null() {
+                return Err(anyhow::anyhow!("wallpaper desktop parent unavailable"));
+            }
+
+            // 父 WorkerW 与 WebView2 可能处于不同 DPI awareness。尺寸查询与
+            // SetWindowPos 必须在父窗口的 DPI context 中成对执行，否则 125%/150%
+            // 缩放下会因坐标虚拟化留下黑边。
+            let parent_dpi = GetWindowDpiAwarenessContext(parent);
+            let previous_dpi = if parent_dpi.is_null() {
+                ptr::null_mut()
+            } else {
+                SetThreadDpiAwarenessContext(parent_dpi)
+            };
+            let mut rect = RECT::default();
+            let measured = GetClientRect(parent, &mut rect) != 0;
+            let mut window_rect = RECT::default();
+            let mut child_client = RECT::default();
+            let mut child_origin = POINT::default();
+            let child_measured = GetWindowRect(hwnd, &mut window_rect) != 0
+                && GetClientRect(hwnd, &mut child_client) != 0
+                && ClientToScreen(hwnd, &mut child_origin) != 0;
+            let child_width = child_client.right - child_client.left;
+            let child_height = child_client.bottom - child_client.top;
+            let inset_left = (child_origin.x - window_rect.left).max(0);
+            let inset_top = (child_origin.y - window_rect.top).max(0);
+            let inset_right = (window_rect.right - child_origin.x - child_width).max(0);
+            let inset_bottom = (window_rect.bottom - child_origin.y - child_height).max(0);
+            const OVERSCAN: i32 = 1;
+            let positioned = measured
+                && child_measured
+                && SetWindowPos(
+                    hwnd,
+                    HWND_BOTTOM,
+                    -inset_left - OVERSCAN,
+                    -inset_top - OVERSCAN,
+                    rect.right - rect.left + inset_left + inset_right + OVERSCAN * 2,
+                    rect.bottom - rect.top + inset_top + inset_bottom + OVERSCAN * 2,
+                    SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED,
+                ) != 0;
+            if !previous_dpi.is_null() {
+                SetThreadDpiAwarenessContext(previous_dpi);
+            }
+            if !measured || !child_measured {
+                return Err(anyhow::anyhow!("WorkerW size unavailable"));
+            }
+            if !positioned {
+                return Err(anyhow::anyhow!("failed to resize wallpaper to WorkerW"));
             }
         }
+        Ok(())
+    }
 
-        let mut state = 0;
-        let result = unsafe { SHQueryUserNotificationState(&mut state) };
-        result >= 0
-            && matches!(
-                state,
-                QUNS_NOT_PRESENT
-                    | QUNS_BUSY
-                    | QUNS_RUNNING_D3D_FULL_SCREEN
-                    | QUNS_PRESENTATION_MODE
-            )
+    fn is_desktop_surface(hwnd: HWND) -> bool {
+        let mut class_name = [0u16; 64];
+        let len = unsafe { GetClassNameW(hwnd, class_name.as_mut_ptr(), class_name.len() as i32) };
+        if len <= 0 {
+            return false;
+        }
+
+        matches!(
+            String::from_utf16_lossy(&class_name[..len as usize]).as_str(),
+            "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd"
+        )
+    }
+
+    pub fn should_pause_for_foreground_window() -> bool {
+        let foreground = unsafe { GetForegroundWindow() };
+        if foreground.is_null() || is_desktop_surface(foreground) {
+            return false;
+        }
+
+        let mut process_id = 0;
+        unsafe { GetWindowThreadProcessId(foreground, &mut process_id) };
+        process_id != std::process::id()
     }
 }
 
@@ -639,12 +833,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             set_overlay_mode,
             get_autostart,
+            get_power_state,
             set_autostart,
             get_media_library,
             open_media_folder,
             open_project_page,
             check_update,
-            exit_app
+            exit_app,
+            runtime_log
         ])
         .setup(|app| {
             build_windows(app)?;

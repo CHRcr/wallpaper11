@@ -37,6 +37,7 @@ let tracks = [];
 let localTracks = [];
 let cur = -1;                 // 当前曲目下标，-1 = 未加载
 let errStreak = 0;            // 连续加载失败计数（防死循环跳歌）
+let debugAutoplayPending = new URLSearchParams(location.search).has('autoplay');
 
 function rebuildTracks(keepCur = true) {
   const curTrack = keepCur && cur >= 0 ? tracks[cur] : null;
@@ -61,6 +62,10 @@ function applyMediaLibrary(library) {
     lrc: t.lrc || '',
   })).filter(t => t.url);
   rebuildTracks();
+  if (debugAutoplayPending && tracks.length) {
+    debugAutoplayPending = false;
+    playIndex(0);
+  }
 }
 
 document.addEventListener('w11-media-library', (event) => applyMediaLibrary(event.detail));
@@ -70,7 +75,7 @@ function resolveUrl(url) {
   // 普通托管预览仍保留旧的 /stream 兼容入口。
   if (/^file:\/\//i.test(url)) {
     const path = decodeURIComponent(url.replace(/^file:\/\//i, ''));
-    if (TAURI) return 'w11stream://localhost/audio?path=' + encodeURIComponent(path);
+    if (TAURI) return 'http://w11stream.localhost/audio?path=' + encodeURIComponent(path);
     if (location.protocol === 'http:') return '/stream?path=' + encodeURIComponent(path);
   }
   return url;
@@ -212,6 +217,7 @@ audio.addEventListener('ended', () => {
 });
 
 audio.addEventListener('error', () => {
+  runtimeLog('audio error code=' + (audio.error ? audio.error.code : 0) + ' src=' + audio.currentSrc);
   if (cur === -1 || !audio.src) return;
   const name = tracks[cur] ? tracks[cur].name : '';
   if (++errStreak >= 3) { errStreak = 0; toast('多首播放失败，先检查音乐文件'); return; }
@@ -219,6 +225,7 @@ audio.addEventListener('error', () => {
   setTimeout(() => nextTrack(false), 800);
 });
 audio.addEventListener('playing', () => { errStreak = 0; });
+audio.addEventListener('playing', () => runtimeLog('audio playing src=' + audio.currentSrc));
 
 /* ---------- 渲染：曲目信息 / 播放状态 ---------- */
 
@@ -518,6 +525,14 @@ function applyDrawer() {
   musicPanel.classList.toggle('show-list', pState.drawer === 'list');
   $('mpLyricsToggle').classList.toggle('active', pState.drawer === 'lyrics');
   $('mpListToggle').classList.toggle('active', pState.drawer === 'list');
+  syncMusicOverlaySize();
+}
+
+function syncMusicOverlaySize() {
+  if (musicMask.hidden) return;
+  const expanded = musicPanel.classList.contains('drawer-open') ||
+    musicPanel.classList.contains('search-open');
+  registerOverlayPanel(expanded ? 'music-expanded' : 'music');
 }
 
 /* ---------- 面板开关 ---------- */
@@ -527,7 +542,7 @@ function openMusic() {
   if (!musicMask.hidden) return;
   closeOtherPanels(musicMask);
   musicMask.hidden = false;
-  registerOverlayPanel(true);
+  syncMusicOverlaySize();
   if (cur === -1 && pState.last >= 0 && pState.last < tracks.length) {
     playIndex(pState.last, false);   // 恢复上次曲目但不自动播放
   }
@@ -536,7 +551,7 @@ function closeMusic() {
   if (musicMask.hidden) return;
   musicMask.hidden = true;
   toggleMusicSearch(false);
-  registerOverlayPanel(false);
+  registerOverlayPanel(null);
 }
 
 panelClosers.push({ el: musicMask, close: closeMusic });
@@ -561,6 +576,7 @@ function toggleMusicSearch(open) {
   const target = open !== undefined ? open : mpSearch.hidden;
   mpSearch.hidden = !target;
   musicPanel.classList.toggle('search-open', target);
+  syncMusicOverlaySize();
   if (target) mpInput.focus();
   else { mpInput.value = ''; mpResults.innerHTML = ''; lastResults = []; }
 }
@@ -654,6 +670,7 @@ powerHandlers.push((run) => {
     audio.play().catch(() => {});
   }
 });
+if (!window.__w11PowerRunning()) powerHandlers[powerHandlers.length - 1](false);
 
 /* ---------- 初始化 ---------- */
 
