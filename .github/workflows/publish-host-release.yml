@@ -1,0 +1,35 @@
+name: Publish host preview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-host-release.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      SOURCE_RUN: "32566753074"
+      SOURCE_ARTIFACT: "wallpaper11-windows-f5893549582619c7edd74ea67d3799f2713c5a3c"
+      RELEASE_TAG: "host-v0.1.0-preview.1"
+    steps:
+      - name: Download verified NSIS installer
+        run: gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "$SOURCE_ARTIFACT" --dir dist
+      - name: Publish GitHub prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          installer="$(find dist -type f -name '*.exe' -print -quit)"
+          test -n "$installer"
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --target f5893549582619c7edd74ea67d3799f2713c5a3c --title "wallpaper11 Windows Host Preview 0.1.0" --prerelease --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" "$installer" --repo "$GITHUB_REPOSITORY" --clobber

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Only the two bundled wallpaper windows may call the host bridge.",
+  "windows": ["wallpaper", "overlay"],
+  "permissions": ["core:default"]
+}

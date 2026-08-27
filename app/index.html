@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>wallpaper11</title>
+<script>
+/* 角色必须在首帧前确定：wallpaper=纯壁纸层 / overlay=工具条+面板层 / all=浏览器完整模式 */
+document.documentElement.dataset.role = new URLSearchParams(location.search).get('role') || 'all';
+</script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- 背景：用户媒体库的视频 + 兜底渐变 -->
+  <div class="bg-fallback" aria-hidden="true"></div>
+  <video id="bgVideo" class="bg-video" autoplay muted loop playsinline preload="metadata"></video>
+
+  <!-- 主舞台（左留 22% 避开系统图标列） -->
+  <main class="stage" id="stage">
+
+    <button class="countdown glass" id="countdown" title="点击修改高考日期">
+      <span class="cd-label">距 2027 高考</span>
+      <span class="cd-days" id="cdDays">···</span>
+      <span class="cd-unit">天</span>
+    </button>
+
+    <div class="clock" id="clock" aria-live="off">
+      <span class="clock-ampm" id="ampm" hidden>PM</span><span id="hh">--</span><span class="colon">:</span><span id="mm">--</span><span class="clock-sec" id="ss">:--</span>
+    </div>
+
+    <div class="yearblock" id="yearblock">
+      <div class="yb-row">
+        <span class="yb-date" id="ybDate">----年--月--日 星期-</span>
+        <span class="yb-pct" id="ybPct">--%</span>
+      </div>
+      <div class="yb-track">
+        <div class="yb-fill" id="ybFill"></div>
+      </div>
+    </div>
+
+    <section class="wordcard glass" id="wordCard" aria-live="polite">
+      <div class="wc-inner" id="wcInner">
+        <div class="wc-head">
+          <span class="wc-word" id="wcWord">abandon</span>
+          <button class="wc-next" id="wcNext" title="换一个">&#10227;</button>
+        </div>
+        <div class="wc-pos" id="wcPos"></div>
+        <ul class="wc-derivs" id="wcDerivs"></ul>
+        <div class="wc-foot">
+          <span class="wc-phrase" id="wcPhrase"></span>
+          <span class="wc-count" id="wcCount"></span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 今日作业板：平时隐藏，晚自习展开 -->
+  <div class="overlay" id="homeworkMask" hidden>
+    <div class="hw-panel" role="dialog" aria-label="今日作业">
+      <header class="hw-head">
+        <div class="hw-head-left">
+          <span class="hw-head-title">今日份作业</span>
+          <span class="hw-head-sub">美味的小练习~</span>
+        </div>
+        <span class="hw-clock" id="hwClock">--:--:--</span>
+        <div class="hw-actions">
+          <button class="mini-btn" id="hwReplace">更换</button>
+          <button class="mini-btn danger" id="hwClear2">清空</button>
+          <button class="panel-close" id="hwClose" title="关闭">&#10005;</button>
+        </div>
+      </header>
+      <div class="hw-body" id="hwBody">
+        <div class="hw-empty" id="hwEmpty">
+          <svg class="hw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <circle cx="9" cy="9" r="2"/>
+            <path d="m21 15-4.5-4.5L6 21"/>
+          </svg>
+          <div class="hw-hint">把图片拖到这里，或点一下选择</div>
+        </div>
+        <img class="hw-img" id="hwImg" alt="今日作业" hidden draggable="false">
+      </div>
+    </div>
+  </div>
+
+  <!-- 工具栏（低调，靠近浮现） -->
+  <nav class="toolbar" id="toolbar" aria-label="工具栏">
+    <button class="tb-btn" id="btnMusic" title="音乐">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+      </svg>
+    </button>
+    <button class="tb-btn" id="btnHomework" title="今日份作业（美味的小练习~）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4.5-4.5L6 21"/>
+      </svg>
+      <i class="tb-dot" id="hwDot" hidden></i>
+    </button>
+    <button class="tb-btn" id="btnSettings" title="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </nav>
+
+  <!-- 设置面板 -->
+  <div class="overlay" id="settingsMask" hidden>
+    <div class="panel glass-strong" role="dialog" aria-label="设置">
+      <header class="panel-head">
+        <span>设置</span>
+        <button class="panel-close" id="settingsClose" title="关闭">&#10005;</button>
+      </header>
+      <div class="panel-body">
+        <label class="field">
+          <span class="field-name">高考日期</span>
+          <input type="date" id="setExamDate">
+        </label>
+        <label class="field">
+          <span class="field-name">倒计时标题</span>
+          <input type="text" id="setExamTitle" maxlength="12" placeholder="距 2027 高考">
+        </label>
+        <label class="field">
+          <span class="field-name">单词切换间隔（秒）</span>
+          <input type="number" id="setWordInterval" min="5" max="600" step="5">
+        </label>
+        <label class="field">
+          <span class="field-name">时间制式</span>
+          <select id="setHour12">
+            <option value="0">24 小时制</option>
+            <option value="1">12 小时制</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-name">显示秒</span>
+          <input type="checkbox" id="setShowSec">
+        </label>
+        <label class="field">
+          <span class="field-name">背景视频</span>
+          <select id="setBg">
+            <option value="play">播放</option>
+            <option value="pause">冻结为静态（最省性能）</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-name">界面缩放</span>
+          <input type="range" id="setScale" min="0.8" max="1.4" step="0.05">
+        </label>
+        <label class="field">
+          <span class="field-name">音乐搜索 API</span>
+          <input type="text" id="setMusicApi" spellcheck="false">
+        </label>
+        <label class="field">
+          <span class="field-name">网易云 Cookie</span>
+          <input type="text" id="setMusicCookie" placeholder="MUSIC_U 的值；可留空" spellcheck="false">
+        </label>
+        <div class="field">
+          <span class="field-name">数据</span>
+          <button class="mini-btn" id="btnReset">恢复默认设置</button>
+        </div>
+        <div class="field host-only" hidden>
+          <span class="field-name">本机媒体</span>
+          <span class="host-btns">
+            <button class="mini-btn" id="btnOpenMedia">打开媒体文件夹</button>
+            <button class="mini-btn" id="btnRefreshMedia">刷新媒体</button>
+          </span>
+        </div>
+        <p class="host-media-note host-only" id="mediaStatus" hidden></p>
+        <div class="field host-only" hidden>
+          <span class="field-name">开机自启动</span>
+          <input type="checkbox" id="setAutostart">
+        </div>
+        <div class="field host-only" hidden>
+          <span class="field-name">更新</span>
+          <span class="host-btns">
+            <button class="mini-btn" id="btnCheckUpdate">检查更新</button>
+            <button class="mini-btn danger" id="btnExit">退出壁纸</button>
+          </span>
+        </div>
+        <div class="field">
+          <span class="field-name">项目</span>
+          <a class="mini-btn project-link" id="btnOpenProject" href="https://github.com/CHRcr/wallpaper11" target="_blank" rel="noopener">GitHub 项目</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 音乐播放器：右上角壁纸卡片，歌词/歌单/搜索在卡片内展开 -->
+  <div class="music-dock" id="musicMask" hidden>
+    <section class="mp glass-strong" id="musicPanel" aria-label="音乐播放器">
+      <header class="mp-head">
+        <span class="mp-kicker"><i aria-hidden="true"></i> NOW PLAYING</span>
+        <div class="mp-actions">
+          <button class="mp-icon-btn" id="musicSearchBtn" title="搜索网易云">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+          </button>
+          <button class="mp-icon-btn" id="musicClose" title="收起">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m8 10 4 4 4-4"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="mp-hero">
+        <div class="mp-cover-wrap" id="mpCoverWrap" title="播放 / 暂停">
+          <img class="mp-cover" id="mpCover" alt="" draggable="false">
+          <span class="mp-cover-state" id="mpCoverState"></span>
+          <i class="mp-cover-glow" aria-hidden="true"></i>
+        </div>
+        <div class="mp-meta">
+          <div class="mp-name" id="mpName">未在播放</div>
+          <div class="mp-artist" id="mpArtist">—</div>
+          <div class="mp-lrc-peek" id="mpLrcPeek">选择一首歌开始播放</div>
+        </div>
+      </div>
+
+      <div class="mp-progress">
+        <span class="mp-time" id="mpCur">0:00</span>
+        <div class="mp-bar" id="mpBar" aria-label="播放进度">
+          <div class="mp-buf" id="mpBuf"></div>
+          <div class="mp-played" id="mpPlayed"></div>
+        </div>
+        <span class="mp-time" id="mpDur">0:00</span>
+      </div>
+
+      <div class="mp-controls">
+        <button class="mp-ctl" id="mpMode" title="列表循环"></button>
+        <button class="mp-ctl" id="mpPrev" title="上一首"></button>
+        <button class="mp-ctl mp-play" id="mpPlay" title="播放"></button>
+        <button class="mp-ctl" id="mpNext" title="下一首"></button>
+        <button class="mp-ctl" id="mpLyricsToggle" title="歌词">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 6h14M5 11h10M5 16h12"/><path d="M5 20h7"/></svg>
+        </button>
+        <button class="mp-ctl" id="mpListToggle" title="播放列表"></button>
+        <span class="mp-vol">
+          <button class="mp-ctl" id="mpMute" title="静音"></button>
+          <input type="range" class="mp-vol-slider" id="mpVol" min="0" max="100" step="1" value="45" aria-label="音量">
+        </span>
+      </div>
+
+      <div class="mp-drawer" id="mpDrawer">
+        <div class="mp-lrc" id="mpLrc">
+          <div class="mp-lrc-inner" id="mpLrcInner"></div>
+          <div class="mp-lrc-empty" id="mpLrcEmpty" hidden></div>
+        </div>
+        <aside class="mp-list" id="mpList">
+          <div class="mp-list-head">
+            <span class="mp-list-title">播放列表 <em id="mpListCount">0</em></span>
+            <span class="mp-list-btns">
+              <button class="mp-list-btn" id="mpListRestore" hidden>恢复</button>
+              <button class="mp-list-btn" id="mpListClear">清空</button>
+            </span>
+          </div>
+          <ol class="mp-list-ol" id="mpListOl"></ol>
+        </aside>
+      </div>
+
+      <div class="mp-search" id="mpSearch" hidden>
+        <div class="mp-search-bar">
+          <button class="mp-search-back" id="mpSearchBack" title="返回">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <input id="mpSearchInput" type="text" placeholder="搜索网易云音乐" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="mp-results" id="mpResults"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 轻提示 -->
+  <div class="toast glass-strong" id="toast" hidden></div>
+
+  <script src="js/main.js"></script>
+  <script src="js/player.js"></script>
+</body>
+</html>

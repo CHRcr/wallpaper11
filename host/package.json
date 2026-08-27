@@ -1,0 +1,16 @@
+{
+  "name": "wallpaper11-host",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "icons": "powershell -ExecutionPolicy Bypass -File ../tools/make-icons.ps1",
+    "predev": "npm run icons",
+    "dev": "tauri dev",
+    "prebuild": "npm run icons",
+    "build": "tauri build --no-bundle",
+    "check": "cargo check --manifest-path src-tauri/Cargo.toml"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

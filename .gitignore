@@ -1,0 +1,14 @@
+# 版权素材，不上传仓库
+app/assets/bg.mp4
+app/assets/*.mp4
+
+# 第三方依赖
+tools/netease-api/node_modules/
+host/node_modules/
+host/src-tauri/target/
+
+# 本地图片缓存
+app/data/*.png
+app/data/*.jpg
+app/data/*.jpeg
+*.log
