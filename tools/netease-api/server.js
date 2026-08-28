@@ -26,6 +26,57 @@ const APP_DATA_DIR = process.env.LOCALAPPDATA
   ? path.join(process.env.LOCALAPPDATA, 'wallpaper11') : __dirname
 const MUSIC_COOKIE_FILE = path.join(APP_DATA_DIR, 'music-cookie.txt')
 
+/* Best-effort camera in-use state, fed by a long-lived camera-probe.ps1 child. */
+const CAMERA_PROBE = path.join(__dirname, 'camera-probe.ps1')
+let cameraProbe = null
+let cameraProbeRespawn = null
+let shuttingDown = false
+const cameraState = { inUse: false, method: 'none', healthy: false, updatedAt: 0 }
+
+function startCameraProbe() {
+  if (cameraProbe || shuttingDown || !fs.existsSync(CAMERA_PROBE)) return
+  const child = spawn('powershell.exe',
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', CAMERA_PROBE],
+    { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+  cameraProbe = child
+  child.once('spawn', () => { cameraState.healthy = true })
+  child.stdout.setEncoding('utf8')
+  let lineBuffer = ''
+  child.stdout.on('data', (chunk) => {
+    lineBuffer += chunk
+    let index
+    while ((index = lineBuffer.indexOf('\n')) >= 0) {
+      const line = lineBuffer.slice(0, index).trim()
+      lineBuffer = lineBuffer.slice(index + 1)
+      const sep = line.indexOf('|')
+      if (sep < 0) continue
+      cameraState.inUse = line.slice(0, sep) === '1'
+      cameraState.method = line.slice(sep + 1) || 'none'
+      cameraState.updatedAt = Date.now()
+    }
+  })
+  child.stderr.on('data', () => {})   // Consume to keep the pipe from filling up.
+  child.once('error', () => {
+    cameraProbe = null
+    cameraState.healthy = false
+  })
+  child.once('exit', () => {
+    cameraProbe = null
+    cameraState.healthy = false
+    cameraState.inUse = false
+    cameraState.method = 'none'
+    if (!shuttingDown) cameraProbeRespawn = setTimeout(startCameraProbe, 10000)
+  })
+}
+
+function stopCameraProbe() {
+  clearTimeout(cameraProbeRespawn)
+  if (cameraProbe) {
+    try { cameraProbe.kill() } catch { /* already gone */ }
+    cameraProbe = null
+  }
+}
+
 const routes = new Map([
   ['/cloudsearch', cloudsearch],
   ['/song/url/v1', songUrl],
@@ -284,6 +335,16 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
+  if (url.pathname === '/camera') {
+    sendJson(res, 200, {
+      inUse: cameraState.inUse,
+      method: cameraState.method,
+      healthy: cameraState.healthy,
+      updatedAt: cameraState.updatedAt,
+    })
+    return
+  }
+
   const handler = routes.get(url.pathname)
   if (!handler) {
     sendJson(res, 404, { code: 404, message: 'Not found' })
@@ -314,6 +375,8 @@ function removeOwnPidFile() {
 }
 
 function shutdown() {
+  shuttingDown = true
+  stopCameraProbe()
   server.close(() => process.exit(0))
   setTimeout(() => process.exit(1), 3000).unref()
 }
@@ -330,6 +393,7 @@ server.on('error', (error) => {
 
 server.listen(PORT, HOST, () => {
   fs.writeFileSync(PID_FILE, String(process.pid), 'utf8')
+  startCameraProbe()
   console.log(`[wallpaper11] Music Bridge ready: http://${HOST}:${PORT}`)
 })
 

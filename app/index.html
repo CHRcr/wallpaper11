@@ -44,10 +44,10 @@
           <button class="wc-next" id="wcNext" type="button" aria-label="换一个单词" title="换一个单词">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
-              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-              <path d="M16 16h5v5"/>
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+              <path d="M21 3v5h-5"/>
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+              <path d="M8 16H3v5"/>
             </svg>
           </button>
         </div>
@@ -76,6 +76,15 @@
         <div class="hw-actions">
           <button class="mini-btn" id="hwReplace">更换</button>
           <button class="mini-btn danger" id="hwClear2">清空</button>
+          <span class="hw-cam" id="hwCamBadge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+              <path d="M21 3v5h-5"/>
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+              <path d="M8 16H3v5"/>
+            </svg>
+          </span>
           <button class="panel-close" id="hwClose" title="关闭">&#10005;</button>
         </div>
       </header>
@@ -236,11 +245,11 @@
         <div class="mp-actions">
           <button class="mp-icon-btn" id="musicSearchBtn" title="搜索网易云">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
             </svg>
           </button>
           <button class="mp-icon-btn" id="musicClose" title="收起">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m8 10 4 4 4-4"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
           </button>
         </div>
       </header>
@@ -273,7 +282,7 @@
         <button class="mp-ctl mp-play" id="mpPlay" title="播放"></button>
         <button class="mp-ctl" id="mpNext" title="下一首"></button>
         <button class="mp-ctl" id="mpLyricsToggle" title="歌词">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 6h14M5 11h10M5 16h12"/><path d="M5 20h7"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H3"/><path d="M15 12H3"/><path d="M17 18H3"/></svg>
         </button>
         <button class="mp-ctl" id="mpListToggle" title="播放列表"></button>
         <span class="mp-vol">

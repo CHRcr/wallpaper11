@@ -1128,7 +1128,7 @@ bgVideo.addEventListener('error', () => {
 
 // Lively 暂停/恢复壁纸时同步视频状态。
 powerHandlers.push((run) => {
-  if (run) applyBgMode(); else bgVideo.pause();
+  if (run) applyBgMode(); else { bgVideo.pause(); applyCameraInUse(false); }
 });
 
 /* ---------- 性能：页面不可见时全部停摆 ---------- */
@@ -1137,6 +1137,33 @@ document.addEventListener('visibilitychange', () => {
   applyBgMode();
   // setInterval 在页面隐藏时浏览器会自动限流，无需额外处理
 });
+
+/* ---------- 摄像头使用提示（有应用占用摄像头时旋转「换一个」图标） ---------- */
+
+let cameraBusy = false;
+
+function applyCameraInUse(on) {
+  $('wcNext').classList.toggle('camera-active', Boolean(on));
+  const badge = $('hwCamBadge');
+  if (badge) badge.classList.toggle('camera-active', Boolean(on));
+}
+
+function pollCamera() {
+  if (cameraBusy || !powerRunning || document.hidden) return;
+  cameraBusy = true;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 800);
+  fetch(apiBase() + '/camera?t=' + Date.now(), { cache: 'no-store', signal: controller.signal })
+    .then((response) => response.ok ? response.json() : null)
+    .then((data) => applyCameraInUse(data && data.inUse))
+    .catch(() => applyCameraInUse(false))
+    .finally(() => {
+      clearTimeout(timer);
+      cameraBusy = false;
+    });
+}
+
+setInterval(pollCamera, 1000);
 
 /* ---------- 启动 ---------- */
 

@@ -9,10 +9,11 @@
 /* ---------- 常量与持久化 ---------- */
 
 const MUSIC_COVER = 'data:image/svg+xml;utf8,' + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90">' +
-  '<rect width="90" height="90" fill="#2b1626"/>' +
-  '<path d="M36 57V26l26-5v30" stroke="#ffcf9c" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
-  '<circle cx="30" cy="57" r="6.5" fill="#ffcf9c"/><circle cx="56" cy="51" r="6.5" fill="#ffcf9c"/></svg>'
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
+  '<rect width="24" height="24" fill="#2b1626"/>' +
+  '<g stroke="#ffcf9c" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M9 18V5l12-2v13"/></g>' +
+  '<circle cx="6" cy="18" r="3" fill="#ffcf9c"/><circle cx="18" cy="16" r="3" fill="#ffcf9c"/></svg>'
 );
 
 const PLAYER_KEY = 'w11-player';
@@ -135,26 +136,22 @@ const mpVolSlider  = $('mpVol');
 const audio = new Audio();
 audio.preload = 'metadata';
 
-/* ---------- SVG 图标 ---------- */
+/* ---------- SVG 图标（Lucide） ---------- */
 
-const icoFill = (body) => '<svg viewBox="0 0 24 24" fill="currentColor">' + body + '</svg>';
+const ico = (body) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + body + '</svg>';
 
 const SVG = {
-  play:  icoFill('<path d="M8 5.5v13a.8.8 0 0 0 1.22.68l10.5-6.5a.8.8 0 0 0 0-1.36L9.22 4.82A.8.8 0 0 0 8 5.5z"/>'),
-  pause: icoFill('<rect x="6.5" y="5" width="3.6" height="14" rx="1.2"/><rect x="13.9" y="5" width="3.6" height="14" rx="1.2"/>'),
-  prev:  icoFill('<path d="M6 5.8v12.4a.9.9 0 0 0 1.8 0V5.8a.9.9 0 0 0-1.8 0z"/><path d="M19 5.7v12.6a.8.8 0 0 1-1.24.67L8.5 12.7a.8.8 0 0 1 0-1.34l9.26-6.34A.8.8 0 0 1 19 5.7z"/>'),
-  next:  icoFill('<path d="M16.2 5.8v12.4a.9.9 0 0 0 1.8 0V5.8a.9.9 0 0 0-1.8 0z"/><path d="M5 5.7v12.6a.8.8 0 0 0 1.24.67l9.26-6.33a.8.8 0 0 0 0-1.34L6.24 5.02A.8.8 0 0 0 5 5.7z"/>'),
-  volOn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19V5z" fill="currentColor" stroke="none"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M17.5 7a8 8 0 0 1 0 10"/></svg>',
-  volOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19V5z" fill="currentColor" stroke="none"/><path d="m15.5 9.5 5 5m0-5-5 5"/></svg>',
-  loop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.5 21 6.5l-4 4"/><path d="M3 12V9.5a3 3 0 0 1 3-3h15"/><path d="m7 21.5-4-4 4-4"/><path d="M21 12v2.5a3 3 0 0 1-3 3H3"/></svg>',
-  shuffle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c5 0 6 10 11 10H21"/><path d="M3 17h3.5c1.9 0 3.2-1.8 4.3-3.5"/><path d="M13.2 9.6c1-1.5 2.3-2.6 4.3-2.6H21"/><path d="m18 4 3 3-3 3"/><path d="m18 14 3 3-3 3"/></svg>',
-  list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg>',
+  play:  ico('<path d="M6 3l14 9-14 9V3z"/>'),
+  pause: ico('<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>'),
+  prev:  ico('<polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/>'),
+  next:  ico('<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>'),
+  volOn: ico('<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>'),
+  volOff: ico('<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>'),
+  loop:  ico('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>'),
+  loopOne: ico('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/>'),
+  shuffle: ico('<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>'),
+  list:  ico('<path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/>'),
 };
-
-function loopOneIcon() {
-  return SVG.loop.replace('</svg>',
-    '<text x="12" y="15.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="currentColor" stroke="none" font-family="Bahnschrift, sans-serif">1</text></svg>');
-}
 
 const MODE_NEXT  = { list: 'one', one: 'rand', rand: 'list' };
 const MODE_LABEL = { list: '列表循环', one: '单曲循环', rand: '随机播放' };
@@ -505,7 +502,7 @@ audio.addEventListener('progress', () => {
 
 function renderMode() {
   mpModeBtn.innerHTML = pState.mode === 'rand' ? SVG.shuffle
-    : pState.mode === 'one' ? loopOneIcon() : SVG.loop;
+    : pState.mode === 'one' ? SVG.loopOne : SVG.loop;
   mpModeBtn.title = MODE_LABEL[pState.mode];
 }
 

@@ -73,6 +73,7 @@ $files = @(
     "package.json",
     "package-lock.json",
     "server.js",
+    "camera-probe.ps1",
     "run-hidden.cmd",
     "start-hidden.vbs",
     "uninstall-hidden.vbs",

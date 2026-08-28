@@ -52,6 +52,7 @@ $files = @(
     "package.json",
     "package-lock.json",
     "server.js",
+    "camera-probe.ps1",
     "install.ps1",
     "uninstall.ps1",
     "status.ps1",
@@ -67,7 +68,17 @@ Copy-Item -LiteralPath $nodeCommand.Source -Destination (Join-Path $runtimeRoot 
 
 $nodeVersion = (& $nodeCommand.Source -p "process.version").Trim().TrimStart("v")
 $licenseUrl = "https://raw.githubusercontent.com/nodejs/node/v$nodeVersion/LICENSE"
-Invoke-WebRequest -UseBasicParsing -Uri $licenseUrl -OutFile (Join-Path $runtimeRoot "NODE-LICENSE.txt")
+$licenseTarget = Join-Path $runtimeRoot "NODE-LICENSE.txt"
+try {
+    Invoke-WebRequest -UseBasicParsing -Uri $licenseUrl -OutFile $licenseTarget -TimeoutSec 30
+} catch {
+    $localLicense = Join-Path (Split-Path -Parent $nodeCommand.Source) "LICENSE"
+    if (Test-Path -LiteralPath $localLicense) {
+        Copy-Item -LiteralPath $localLicense -Destination $licenseTarget
+    } else {
+        Write-Host "[wallpaper11] Warning: license download skipped (no network, no local license)."
+    }
+}
 
 Write-Host "[wallpaper11] Compressing self-contained runtime..."
 Compress-Archive -Path (Join-Path $payloadRoot "*") -DestinationPath $payloadZip -CompressionLevel Optimal

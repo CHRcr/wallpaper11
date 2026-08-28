@@ -305,7 +305,9 @@ input[type="date"] {
   opacity: 0.68;
   transition: opacity 0.2s, background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s var(--ease-soft);
 }
-.wc-next svg { width: 19px; height: 19px; }
+.wc-next svg { width: 19px; height: 19px; transform-origin: 50% 50%; }
+@keyframes wc-camera-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.camera-active svg { animation: wc-camera-spin 1.4s linear infinite; }
 .wordcard:hover .wc-next,
 .wc-next:focus-visible { opacity: 1; }
 .wc-next:hover {
@@ -940,6 +942,20 @@ body.hw-open .toolbar { opacity: 0 !important; pointer-events: none; }
   transition: color 0.2s, border-color 0.2s;
 }
 .mini-btn:hover { color: var(--ink); border-color: var(--glass-line-hi); }
+
+/* 作业板中的摄像头占用指示：仅旋转，无文字 */
+.hw-cam {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: rgba(255, 239, 221, 0.58);
+  opacity: 0.8;
+  transition: opacity 0.2s, color 0.2s;
+}
+.hw-cam svg { width: 17px; height: 17px; transform-origin: 50% 50%; }
+.hw-cam.camera-active { color: var(--gold); opacity: 1; }
 .github-btn {
   min-height: 42px;
   max-width: 240px;
@@ -1497,9 +1513,10 @@ html[data-theme="calm"] .stage {
 
 html[data-theme="calm"] .countdown {
   position: absolute;
-  top: clamp(24px, 3.6vh, 58px);
-  left: clamp(350px, 26vw, 1080px);
-  padding: 0.42em 1.15em;
+  top: clamp(150px, 18.5vh, 266px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.36em 1.15em;
   color: var(--ink);
   background: rgba(255, 253, 249, 0.70);
   border-color: rgba(126, 78, 74, 0.22);
@@ -1511,6 +1528,7 @@ html[data-theme="calm"] .countdown {
 html[data-theme="calm"] .countdown:hover {
   background: rgba(255, 253, 249, 0.90);
   border-color: var(--glass-line-hi);
+  transform: translateX(-50%) translateY(-1px);
 }
 
 html[data-theme="calm"] .cd-label,
@@ -1533,7 +1551,7 @@ html[data-theme="calm"] .clock {
 
 html[data-theme="calm"] .yearblock {
   position: absolute;
-  top: clamp(176px, 22.5vh, 330px);
+  top: clamp(190px, 24.5vh, 372px);
   left: 50%;
   width: min(590px, 42vw);
   transform: translateX(-50%);
@@ -1564,7 +1582,7 @@ html[data-theme="calm"] .yb-fill::after {
 
 html[data-theme="calm"] .wordcard {
   position: absolute;
-  top: clamp(300px, 29vh, 450px);
+  top: clamp(318px, 30.5vh, 470px);
   right: clamp(36px, 3vw, 96px);
   bottom: auto;
   left: auto;
@@ -1719,6 +1737,9 @@ html[data-theme="calm"] .cookie-action,
 html[data-theme="calm"] .mini-btn {
   background: rgba(148, 89, 84, 0.04);
 }
+
+html[data-theme="calm"] .hw-cam { color: rgba(66, 54, 55, 0.46); }
+html[data-theme="calm"] .hw-cam.camera-active { color: var(--gold); }
 
 html[data-theme="calm"] .cookie-action:hover,
 html[data-theme="calm"] .cookie-action:focus-visible,
