@@ -66,6 +66,26 @@ function trackName(file) {
   };
 }
 
+const MUSIC_LANGUAGE_ORDER = { english: 0, japanese: 1, chinese: 2, other: 3 };
+const JAPANESE_ARTIST_HINT = /(?:久石譲|久石让|松下優也|松下优也|宇多田ヒカル|鈴代紗弓|铃代纱弓|RADWIMPS|imase)/i;
+
+function musicLanguage(file, names, lyrics) {
+  const relative = path.relative(path.join(MEDIA, 'music'), file).split(path.sep).join('/');
+  const folder = relative.includes('/') ? relative.slice(0, relative.lastIndexOf('/')) : '';
+  if (/(?:^|\/)(?:english|en)(?:\/|$)/i.test(folder)) return 'english';
+  if (/(?:^|\/)(?:japanese|ja|jp)(?:\/|$)/i.test(folder)) return 'japanese';
+  if (/(?:^|\/)(?:chinese|zh|cn)(?:\/|$)/i.test(folder)) return 'chinese';
+
+  const identity = `${names.name} ${names.artist}`;
+  if (/[\u3040-\u30ff]/.test(identity) || JAPANESE_ARTIST_HINT.test(identity)) return 'japanese';
+  if (/[\u3400-\u9fff]/.test(identity)) return 'chinese';
+  const lyricKana = lyrics.match(/[\u3040-\u30ff]/g) || [];
+  if (lyricKana.length >= 3) return 'japanese';
+  if (/[A-Za-z]/.test(identity)) return 'english';
+  if (/[\u3400-\u9fff]/.test(lyrics)) return 'chinese';
+  return 'other';
+}
+
 for (const [, destination] of SOURCES) fs.mkdirSync(destination, { recursive: true });
 const copied = SOURCES.reduce((total, [source, destination]) =>
   total + copyTree(source, destination), 0);
@@ -75,15 +95,23 @@ const musicFiles = collectFiles(path.join(MEDIA, 'music'), AUDIO_EXTENSIONS)
 const videoFiles = collectFiles(path.join(MEDIA, 'video'), VIDEO_EXTENSIONS)
   .sort((a, b) => a.localeCompare(b, 'zh-CN', { sensitivity: 'base' }));
 
-const library = {
-  music: musicFiles.map((file) => {
+const music = musicFiles.map((file) => {
     const names = trackName(file);
+    const lrc = decodeText(file.slice(0, -path.extname(file).length) + '.lrc');
     return {
       ...names,
       url: browserPath(file),
-      lrc: decodeText(file.slice(0, -path.extname(file).length) + '.lrc'),
+      lrc,
+      sortLanguage: musicLanguage(file, names, lrc),
+      sortFile: file,
     };
-  }),
+  }).sort((a, b) =>
+    MUSIC_LANGUAGE_ORDER[a.sortLanguage] - MUSIC_LANGUAGE_ORDER[b.sortLanguage] ||
+    a.sortFile.localeCompare(b.sortFile, 'zh-CN', { sensitivity: 'base' }))
+  .map(({ sortLanguage, sortFile, ...track }) => track);
+
+const library = {
+  music,
   backgroundUrl: videoFiles.length ? browserPath(videoFiles[0]) : '',
   mediaDir: 'media',
 };

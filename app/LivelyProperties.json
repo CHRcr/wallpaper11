@@ -1,4 +1,14 @@
 {
+  "theme": {
+    "type": "dropdown",
+    "value": 0,
+    "text": "主题（壁纸内也可切换）",
+    "items": [
+      "跟随壁纸内设置（默认）",
+      "沉静素雅",
+      "暮色暖金"
+    ]
+  },
   "backgroundVideo": {
     "type": "folderDropdown",
     "value": "",

@@ -11,6 +11,7 @@ const required = [
   'index.html',
   'LivelyInfo.json',
   'LivelyProperties.json',
+  'assets/theme-calm.jpg',
   'css/style.css',
   'js/main.js',
   'js/player.js',

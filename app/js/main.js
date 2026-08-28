@@ -7,6 +7,7 @@
 /* ---------- 设置（localStorage 持久化） ---------- */
 
 const DEFAULTS = {
+  theme: 'calm',                 // calm=沉静素雅 / sunset=暮色暖金
   examDate: '2027-06-07',      // 高考日期（占位，之后再定）
   examTitle: '距 2027 高考',
   wordInterval: 50,            // 单词切换间隔（秒）
@@ -27,6 +28,7 @@ function loadSettings() {
 }
 
 let settings = loadSettings();
+let livelyThemeOverride = null;
 
 function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* 忽略 */ }
@@ -607,24 +609,141 @@ function cookieParam() {
 
 const settingsMask = $('settingsMask');
 
+function syncChoiceGroup(id, value) {
+  const group = $(id);
+  const selectedValue = String(value);
+  group.querySelectorAll('button[data-value]').forEach((button) => {
+    const selected = button.dataset.value === selectedValue;
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-checked', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  });
+}
+
+function setupChoiceGroup(id, onSelect) {
+  const group = $(id);
+  group.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-value]');
+    if (!button || !group.contains(button)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    syncChoiceGroup(id, button.dataset.value);
+    onSelect(button.dataset.value);
+  });
+  group.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    const buttons = [...group.querySelectorAll('button[data-value]')];
+    const current = Math.max(0, buttons.indexOf(document.activeElement));
+    const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+    const next = buttons[(current + direction + buttons.length) % buttons.length];
+    event.preventDefault();
+    next.click();
+    next.focus();
+  });
+}
+
+function parseIsoDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+  if (!match) return parseIsoDate(DEFAULTS.examDate);
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, month, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+    return parseIsoDate(DEFAULTS.examDate);
+  }
+  return date;
+}
+
+function formatIsoDate(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function formatDisplayDate(value) {
+  const date = parseIsoDate(value);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+let calendarCursor = new Date(parseIsoDate(settings.examDate).getFullYear(),
+  parseIsoDate(settings.examDate).getMonth(), 1);
+
+function renderCalendar() {
+  const selected = parseIsoDate(settings.examDate);
+  const today = new Date();
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+  $('calMonth').textContent = `${year}年${month + 1}月`;
+
+  const first = new Date(year, month, 1);
+  const mondayOffset = (first.getDay() + 6) % 7;
+  const start = new Date(year, month, 1 - mondayOffset);
+  const fragment = document.createDocumentFragment();
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+    const button = document.createElement('button');
+    const iso = formatIsoDate(date);
+    button.type = 'button';
+    button.dataset.date = iso;
+    button.textContent = String(date.getDate());
+    button.setAttribute('role', 'gridcell');
+    button.setAttribute('aria-label', formatDisplayDate(iso));
+    button.classList.toggle('other-month', date.getMonth() !== month);
+    button.classList.toggle('today', formatIsoDate(today) === iso);
+    button.classList.toggle('selected', formatIsoDate(selected) === iso);
+    button.setAttribute('aria-selected', String(formatIsoDate(selected) === iso));
+    fragment.append(button);
+  }
+  $('calendarDays').replaceChildren(fragment);
+}
+
+function syncExamDateControl() {
+  $('setExamDateText').textContent = formatDisplayDate(settings.examDate);
+}
+
+function openCalendar() {
+  const selected = parseIsoDate(settings.examDate);
+  calendarCursor = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  $('examCalendar').hidden = false;
+  $('setExamDate').setAttribute('aria-expanded', 'true');
+  renderCalendar();
+}
+
+function closeCalendar() {
+  $('examCalendar').hidden = true;
+  $('setExamDate').setAttribute('aria-expanded', 'false');
+}
+
+function moveCalendar(years, months) {
+  calendarCursor = new Date(calendarCursor.getFullYear() + years,
+    calendarCursor.getMonth() + months, 1);
+  renderCalendar();
+}
+
 function openSettings() {
-  if (!settingsMask.hidden) return;
-  closeOtherPanels(settingsMask);
-  $('setExamDate').value = settings.examDate;
+  const wasHidden = settingsMask.hidden;
+  if (wasHidden) closeOtherPanels(settingsMask);
+  syncChoiceGroup('setTheme', normalizeTheme(settings.theme));
+  syncExamDateControl();
   $('setExamTitle').value = settings.examTitle;
   $('setWordInterval').value = settings.wordInterval;
-  $('setHour12').value = settings.hour12 ? '1' : '0';
+  syncChoiceGroup('setHour12', settings.hour12 ? '1' : '0');
   $('setShowSec').checked = settings.showSec;
-  $('setBg').value = settings.bgMode;
+  syncChoiceGroup('setBg', settings.bgMode);
   $('setScale').value = settings.scale;
   $('setMusicCookie').value = settings.musicCookie;
   $('btnManageMusicBridge').href = apiBase() + '/manage';
+  closeCalendar();
   settingsMask.hidden = false;
-  refreshMusicBridgeStatus();
+  if (wasHidden) refreshMusicBridgeStatus();
 }
 
 function closeSettings() {
   if (settingsMask.hidden) return;
+  closeCalendar();
   settingsMask.hidden = true;
 }
 
@@ -638,14 +757,36 @@ settingsMask.addEventListener('click', (e) => { if (e.target === settingsMask) c
 // 点倒计时胶囊 = 直接打开设置改日期
 $('countdown').addEventListener('click', () => {
   openSettings();
+  openCalendar();
   $('setExamDate').focus();
 });
 
 // 设置项即时生效
-$('setExamDate').addEventListener('change', (e) => {
-  settings.examDate = e.target.value || DEFAULTS.examDate;
-  saveSettings(); updateCountdown();
+setupChoiceGroup('setTheme', (value) => {
+  settings.theme = normalizeTheme(value);
+  saveSettings(); applySettings(); applyBgMode();
 });
+$('setExamDate').addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if ($('examCalendar').hidden) openCalendar();
+  else closeCalendar();
+});
+$('calendarDays').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-date]');
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  settings.examDate = button.dataset.date;
+  saveSettings();
+  syncExamDateControl();
+  updateCountdown();
+  closeCalendar();
+});
+$('calPrevYear').addEventListener('click', () => moveCalendar(-1, 0));
+$('calPrevMonth').addEventListener('click', () => moveCalendar(0, -1));
+$('calNextMonth').addEventListener('click', () => moveCalendar(0, 1));
+$('calNextYear').addEventListener('click', () => moveCalendar(1, 0));
 $('setExamTitle').addEventListener('input', (e) => {
   settings.examTitle = e.target.value.trim() || DEFAULTS.examTitle;
   saveSettings(); applySettings();
@@ -654,16 +795,16 @@ $('setWordInterval').addEventListener('change', (e) => {
   settings.wordInterval = Number(e.target.value) || DEFAULTS.wordInterval;
   saveSettings(); restartWordTimer();
 });
-$('setHour12').addEventListener('change', (e) => {
-  settings.hour12 = e.target.value === '1';
+setupChoiceGroup('setHour12', (value) => {
+  settings.hour12 = value === '1';
   saveSettings(); tick();
 });
 $('setShowSec').addEventListener('change', (e) => {
   settings.showSec = e.target.checked;
   saveSettings(); applySettings(); tick();
 });
-$('setBg').addEventListener('change', (e) => {
-  settings.bgMode = e.target.value;
+setupChoiceGroup('setBg', (value) => {
+  settings.bgMode = value;
   saveSettings(); applyBgMode();
 });
 $('setScale').addEventListener('input', (e) => {
@@ -819,6 +960,7 @@ $('btnManageMusicBridge').addEventListener('click', (event) => {
 });
 $('btnReset').addEventListener('click', () => {
   settings = { ...DEFAULTS };
+  livelyThemeOverride = null;
   saveSettings();
   applySettings(); applyBgMode(); restartWordTimer(); tick(); updateCountdown();
   openSettings();   // 刷新面板里的值
@@ -827,7 +969,17 @@ $('btnReset').addEventListener('click', () => {
 
 /* ---------- 应用设置 ---------- */
 
+function normalizeTheme(value) {
+  return value === 'sunset' || Number(value) === 2 ? 'sunset' : 'calm';
+}
+
+function activeTheme() {
+  return livelyThemeOverride || normalizeTheme(settings.theme);
+}
+
 function applySettings() {
+  settings.theme = normalizeTheme(settings.theme);
+  document.documentElement.dataset.theme = activeTheme();
   document.documentElement.style.setProperty('--ui-scale', settings.scale);
   $('clock').classList.toggle('hide-sec', !settings.showSec);
   document.querySelector('.cd-label').textContent = settings.examTitle;
@@ -855,12 +1007,12 @@ function localMediaUrl(value, folder) {
 
 function setBackgroundSource(source) {
   const next = String(source || '');
-  if (bgVideo.dataset.mediaSource === next) return;
+  if (bgVideo.dataset.mediaSource === next) {
+    applyBgMode();
+    return;
+  }
   bgVideo.pause();
   bgVideo.dataset.mediaSource = next;
-  if (next) bgVideo.src = next;
-  else bgVideo.removeAttribute('src');
-  bgVideo.load();
   applyBgMode();
 }
 
@@ -886,6 +1038,11 @@ function refreshSettingsRuntime() {
 // Lively 持久属性回调。属性面板与壁纸内设置使用同一份运行时状态。
 window.livelyPropertyListener = function livelyPropertyListener(name, value) {
   switch (name) {
+    case 'theme': {
+      const themeOverride = Number(value);
+      livelyThemeOverride = themeOverride === 0 ? null : normalizeTheme(themeOverride);
+      break;
+    }
     case 'backgroundVideo': {
       livelyBackgroundSource = localMediaUrl(value, 'media/video');
       setBackgroundSource(livelyBackgroundSource || window.W11_MEDIA_LIBRARY.backgroundUrl || '');
@@ -912,7 +1069,10 @@ window.livelyPropertyListener = function livelyPropertyListener(name, value) {
       if (nextCookie || !settings.musicCookie) settings.musicCookie = nextCookie;
       break;
     }
-    case 'lively_default_settings_reload': settings = { ...DEFAULTS }; break;
+    case 'lively_default_settings_reload':
+      settings = { ...DEFAULTS };
+      livelyThemeOverride = null;
+      break;
     default: return;
   }
   refreshSettingsRuntime();
@@ -930,10 +1090,21 @@ window.livelyWallpaperPlaybackChanged = function livelyWallpaperPlaybackChanged(
 };
 
 function applyBgMode() {
-  if (!bgVideo.dataset.mediaSource) {
+  const source = bgVideo.dataset.mediaSource || '';
+  if (activeTheme() !== 'sunset' || !source) {
     bgVideo.pause();
+    if (bgVideo.hasAttribute('src')) {
+      bgVideo.removeAttribute('src');
+      bgVideo.load();
+    }
     return;
   }
+
+  if (bgVideo.getAttribute('src') !== source) {
+    bgVideo.src = source;
+    bgVideo.load();
+  }
+
   if (settings.bgMode === 'pause' || document.hidden || !powerRunning) {
     bgVideo.pause();               // 冻结当前帧 = 静态壁纸，最省性能
   } else {
