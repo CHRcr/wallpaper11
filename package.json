@@ -8,6 +8,7 @@
     "words:build": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-gaokao-words.ps1",
     "check": "node tools/check-lively.js",
     "package": "powershell -ExecutionPolicy Bypass -File tools/package-lively.ps1",
+    "setup": "powershell -ExecutionPolicy Bypass -File tools/setup/build-setup.ps1",
     "music:install": "powershell -ExecutionPolicy Bypass -File tools/netease-api/install.ps1",
     "music:package": "powershell -ExecutionPolicy Bypass -File tools/netease-api/build-installer.ps1",
     "music:status": "powershell -ExecutionPolicy Bypass -File tools/netease-api/status.ps1",

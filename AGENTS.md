@@ -34,11 +34,16 @@
 - **播放器形态：** 右上角紧凑毛玻璃卡片，歌词、歌单和搜索只在卡片内部展开。
 - **持久化：** Lively 属性是跨重载的首选设置来源；网页内设置与播放器状态仍使用 localStorage；作业拖图使用 IndexedDB，长期固定作业图优先通过 Lively 的 `homeworkImage` 属性选择。
 - **更新：** GitHub 项目入口保留，更新 Lively 壁纸包时不得提交或删除本机媒体源目录。
+- **一体化安装包：** `npm run setup` 产出 `dist/wallpaper11-setup.exe`（Inno Setup，内嵌 Lively 安装器 + `wallpaper11-lively.zip` + `bridge-payload.zip`）。`tools/netease-api/` 的 `build-installer.ps1` 与 setup 共用 `tools/setup/bridge-payload.ps1`；旧的 `wallpaper11-music-setup.exe` 保留为备用。
+- **安装器机制：** setup 靠 `%LOCALAPPDATA%\Lively Wallpaper\Library\wallpapers\wallpaper11\`（Lively v2 `setwp --file` 只接受库内目录）+ `setwp` 命令行应用壁纸；Lively 检测靠注册表 AppId `{E3E43E1B-DEC8-44BF-84A6-243DBA3F2CB1}_is1`。
+- **Inno Setup 7+**：`SetupArchitecture=x64` 产出原生 AMD64 安装器；`build-setup.ps1` 自动引导 is-7_1_0 便携编译器，`setup.iss` 中文文案经 BOM 化后在 `dist\.setup-build\iss\` 编译。[Run] 的 Parameters 内嵌引号在 Inno 6.7.3 上解析有问题，统一用 [Code] Exec 拼引号。
+- **Lively 命令行坑：** v2 的 `setwp` 命令只有主实例的 gRPC AutomationCommand 入口会执行（冷启动实例只解析 ScreenSaver 参数）；安装器必须先冷启动主实例、等 named pipe `Grpc_LIVELY:DESKTOPWALLPAPERSYSTEM<user>` 就绪，再用 `& exe setwp --file ...`（第二实例转发执行），并用 `WallpaperLayout.json` 的 LivelyInfoPath 验证切换成功。
 
 ## 三、当前状态
 
 - `app/` 是完整的单窗口网页壁纸。
 - 时钟、年度进度、倒计时、示例单词卡、作业板、设置和右上角音乐播放器均已保留。
+- 高考词表（3423 条，`W11_WORD_DATA` 内嵌 `app/js/word-data.js`，含版本号与来源）已完成，可直接在 `file://` 下加载。
 - `window.livelyPropertyListener(name, value)` 已映射背景、时钟、倒计时、切词间隔、缩放、作业图和网易云配置。
 - `window.livelyWallpaperPlaybackChanged(data)` 已映射 Lively 暂停状态。
 - 本机歌单由 `tools/prepare-lively-media.js` 生成，支持子目录、同名 LRC、UTF-8 与 GBK 歌词。
@@ -46,13 +51,14 @@
 - GitHub Actions 只做 Lively 项目静态检查，不构建 EXE，也不发布 Release。
 - 网易云使用自包含的本机 Music Bridge，只开放壁纸需要的接口并监听 `127.0.0.1:16311`；`npm run music:package` 生成无需 Node/npm 的单文件安装包，安装到当前用户目录并静默登录自启。
 - 壁纸设置页负责 Music Bridge 状态、Cookie 验证和本机管理入口；由于浏览器沙箱限制，首次安装仍由用户双击安装包确认。
+- `.github/workflows/setup-build.yml` 在 tag `v*` 或手动触发时构建 `wallpaper11-setup.exe` 并发布 Release；卸载入口只删壁纸库目录与 Bridge，不卸载 Lively。
 
 ## 四、待办
 
-1. 等用户提供完整 3500 词库，转为可在 `file://` 环境加载的本地数据，同时保留内嵌兜底。
-2. 在 Lively/Windows 11/希沃实机验证触屏、桌面输入、WebView2 MP4、IndexedDB 和“其他应用获得焦点时暂停”。
+1. 在 Lively/Windows 11/希沃实机验证触屏、桌面输入、WebView2 MP4、IndexedDB 和“其他应用获得焦点时暂停”。
 3. 根据实机结果调整 Lively 的鼠标/键盘输入说明；默认只要求鼠标输入，文本输入需要用户开启壁纸键盘输入或从 Lively 自定义面板填写。
 4. 在希沃实机验证 Music Bridge 的安装、登录自启、MUSIC_U 和网络异常提示；不要重新引入桌面嵌入宿主。
+5. 在希沃实机验证 `wallpaper11-setup.exe`：Lively 首次静默安装、壁纸导入与 setwp、卸载不动 Lively 与其他壁纸；确认非管理员账户也能完成。
 
 ## 五、协作约定
 

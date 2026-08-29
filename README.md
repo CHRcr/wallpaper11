@@ -7,41 +7,36 @@
 ## 功能
 
 - 背景视频、大数字时钟、日期、年度进度和高考倒计时
-- 3423 条高考词表，随机展示中文释义、词族和常用搭配
+- 高考词表，随机展示中文释义、词族和常用搭配
 - 底部工具栏：音乐播放器、今日作业和壁纸设置
 - 本机音乐、LRC 歌词和网易云搜索
 - Lively 暂停壁纸时，同步暂停背景视频和音乐
 
 ## 使用方法
 
-### 1. 准备文件
+### 推荐：一体化安装包
 
-拷贝到新电脑或 U 盘时，准备以下三项：
+在目标电脑上直接运行 **`wallpaper11-setup.exe`**，它会自动完成：
 
-1. **Lively Wallpaper 安装包**
-2. **`wallpaper11-lively.zip`**：壁纸本体与已打包的本机媒体
-3. **`wallpaper11-music-setup.exe`**：网易云 Music Bridge；不用网易云时可不安装
+1. 检测并安装 [Lively Wallpaper](https://github.com/rocksdanister/lively)（安装包已内置于 `wallpaper11-setup.exe`，教室断网也能装）；
+2. 安装 [wallpaper11 本地 Music Bridge](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)；
+3. 把 wallpaper11 导入 Lively 壁纸库；
+4. 立即将 wallpaper11 设为当前壁纸。
 
-普通使用不需要 Node.js、npm 或管理员权限。
+全程不需要 Node.js、npm、Git、管理员权限，也不用手动拖入 ZIP。首次安装时 Windows 可能弹出「用户账户控制」（为安装 VC++/.NET 运行库），点击「是」即可，安装页会显示进度字幕（Lively → Music Bridge → 导入并应用壁纸）。安装后打开壁纸底部设置，确认 **Music Bridge** 显示「已连接」，再粘贴 `MUSIC_U` 并验证即可。
 
-### 2. 安装壁纸
+> 需要在壁纸内键入搜索内容时，在 Lively「壁纸 → 交互 → 壁纸输入」中开启键盘输入；使「其他应用获得焦点时」暂停壁纸的选项位于 Lively「性能」设置。
 
-1. 安装并打开 Lively Wallpaper。
-2. 将 `wallpaper11-lively.zip` 拖入 Lively 完成导入，然后将它设为壁纸。
-3. 在 Lively 中使用 **WebView2** 网页引擎，并保持壁纸鼠标输入开启。
-4. 在 Lively「性能」设置中，将「其他应用获得焦点时」设为暂停。
+### 备用：手动组件
 
-需要在壁纸内键入搜索内容时，还需在 Lively「壁纸 → 交互 → 壁纸输入」中开启键盘输入。
+仅当无法使用一体化安装包时：
 
-### 3. 安装网易云组件
+1. 安装 Lively Wallpaper 后，把 `wallpaper11-lively.zip` 拖入 Lively 完成导入，再设为壁纸（使用 **WebView2** 网页引擎）。
+2. 网易云组件手动运行 `wallpaper11-music-setup.exe`。不用网易云时可跳过。
 
-1. 双击 `wallpaper11-music-setup.exe`。
-2. 打开壁纸底部的设置，确认 **Music Bridge** 显示「已连接」。
-3. 将网易云 `MUSIC_U` 复制到剪贴板，点击「粘贴」，再点击「验证」。
+`wallpaper11-music-setup.exe` 保留作为备用安装方式，正式推荐只使用 `wallpaper11-setup.exe`。
 
-Bridge 只监听 `127.0.0.1:16311`。Cookie 仅保存在当前 Windows 用户的 `%LOCALAPPDATA%\wallpaper11\music-cookie.txt`，清空 Cookie 或卸载 Bridge 时会一并删除。
-
-### 4. 日常操作
+### 日常操作
 
 桌面底部中间的低调工具栏包含：
 
@@ -53,9 +48,11 @@ Bridge 只监听 `127.0.0.1:16311`。Cookie 仅保存在当前 Windows 用户的
 
 ## 卸载
 
-- **Music Bridge**：在壁纸设置中点击「管理 → 卸载组件」，或在 Windows「已安装的应用」中卸载。
-- **壁纸**：在 Lively 图库中删除 wallpaper11。
-- **Lively**：如果不再使用动态壁纸，可在 Windows「已安装的应用」中卸载 Lively Wallpaper。
+在 Windows「已安装的应用」中卸载 **wallpaper11**：
+
+- 卸载会停止并删除 Music Bridge（含自启动快捷方式），删除 wallpaper11 壁纸本体（仅限属于 wallpaper11 的库目录）。
+- **不会**卸载 Lively Wallpaper，也不会删除其他 Lively 壁纸或用户数据。
+- Lively 若不再需要，可另行单独卸载，此时可在提示中选择是否保留本地数据目录。
 
 ## 本地媒体与打包
 
@@ -73,8 +70,12 @@ local-homework/    作业图片
 npm run dev             # 启动本地预览 http://127.0.0.1:1420
 npm run check           # 检查 Lively 项目和词库
 npm run package         # 生成 dist/wallpaper11-lively.zip
-npm run music:package   # 生成 dist/wallpaper11-music-setup.exe
-npm run portable        # 生成可拷贝到 U 盘的目录
+npm run music:package   # 生成 dist/wallpaper11-music-setup.exe（备用）
+npm run setup           # 生成 dist/wallpaper11-setup.exe 一体化安装包（内嵌 Lively，离线安装）
 ```
+
+一体化安装包构建过程：本地需要 Inno Setup Compiler（`npm run setup` 找不到时会自动下载便携版到 `dist\.setup-build\`）；Lively 安装包按顺序使用 `LIVELY_SETUP_EXE` 环境变量指定的文件、`Downloads` 目录中已有的 `lively_setup_x86_full_v2210.exe`，或从 GitHub Release 下载并缓存到 `dist\.setup-build\lively\` 供后续复用。产物始终包含完整 Lively 安装包，目标机安装全程不需要联网。
+
+产物未签名，首次运行若出现 Windows 智能屏幕提示，选择「仍要运行」即可。
 
 媒体文件、Cookie 和 `dist/` 产物不会提交到 Git。项目使用 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 提供网易云连接，词形数据来自 MIT 许可的 [ECDICT](https://github.com/skywind3000/ECDICT)。

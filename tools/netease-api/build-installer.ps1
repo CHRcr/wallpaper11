@@ -7,8 +7,6 @@ $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent (Split-Path -Parent $sourceDir)
 $distRoot = Join-Path $projectRoot "dist"
 $workRoot = Join-Path $distRoot ".music-installer-build"
-$payloadRoot = Join-Path $workRoot "payload"
-$runtimeRoot = Join-Path $payloadRoot "runtime"
 $payloadZip = Join-Path $workRoot "payload.zip"
 $sedPath = Join-Path $workRoot "music-bridge.sed"
 $outputPath = Join-Path $distRoot "wallpaper11-music-setup.exe"
@@ -16,12 +14,6 @@ $iexpress = Join-Path $env:WINDIR "System32\iexpress.exe"
 
 if (-not (Test-Path -LiteralPath $iexpress)) {
     throw "IExpress is not available on this Windows installation."
-}
-
-$nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
-$npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
-if (-not $nodeCommand -or -not $npmCommand) {
-    throw "Node.js and npm are required to build the installer."
 }
 
 New-Item -ItemType Directory -Path $distRoot -Force | Out-Null
@@ -34,54 +26,14 @@ if (Test-Path -LiteralPath $workRoot) {
     }
     Remove-Item -LiteralPath $workRoot -Recurse -Force
 }
-New-Item -ItemType Directory -Path $payloadRoot -Force | Out-Null
-New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
 
-Write-Host "[wallpaper11] Preparing Music Bridge dependencies..."
-Push-Location $sourceDir
-try {
-    & $npmCommand.Source ci --omit=dev
-    if ($LASTEXITCODE -ne 0) {
-        throw "npm ci failed with exit code $LASTEXITCODE."
-    }
-} finally {
-    Pop-Location
+Write-Host "[wallpaper11] Building Music Bridge payload..."
+& (Join-Path $projectRoot "tools\setup\bridge-payload.ps1") -OutZip $payloadZip
+if ($LASTEXITCODE -ne 0) {
+    throw "bridge-payload.ps1 failed with exit code $LASTEXITCODE."
 }
 
-$files = @(
-    "package.json",
-    "package-lock.json",
-    "server.js",
-    "camera-probe.ps1",
-    "install.ps1",
-    "uninstall.ps1",
-    "status.ps1",
-    "run-hidden.cmd",
-    "start-hidden.vbs",
-    "uninstall-hidden.vbs"
-)
-foreach ($file in $files) {
-    Copy-Item -LiteralPath (Join-Path $sourceDir $file) -Destination $payloadRoot
-}
-Copy-Item -LiteralPath (Join-Path $sourceDir "node_modules") -Destination $payloadRoot -Recurse
-Copy-Item -LiteralPath $nodeCommand.Source -Destination (Join-Path $runtimeRoot "node.exe")
-
-$nodeVersion = (& $nodeCommand.Source -p "process.version").Trim().TrimStart("v")
-$licenseUrl = "https://raw.githubusercontent.com/nodejs/node/v$nodeVersion/LICENSE"
-$licenseTarget = Join-Path $runtimeRoot "NODE-LICENSE.txt"
-try {
-    Invoke-WebRequest -UseBasicParsing -Uri $licenseUrl -OutFile $licenseTarget -TimeoutSec 30
-} catch {
-    $localLicense = Join-Path (Split-Path -Parent $nodeCommand.Source) "LICENSE"
-    if (Test-Path -LiteralPath $localLicense) {
-        Copy-Item -LiteralPath $localLicense -Destination $licenseTarget
-    } else {
-        Write-Host "[wallpaper11] Warning: license download skipped (no network, no local license)."
-    }
-}
-
-Write-Host "[wallpaper11] Compressing self-contained runtime..."
-Compress-Archive -Path (Join-Path $payloadRoot "*") -DestinationPath $payloadZip -CompressionLevel Optimal
 Copy-Item -LiteralPath (Join-Path $sourceDir "installer-bootstrap.ps1") -Destination $workRoot
 
 $sourceWithSlash = $workRoot.TrimEnd("\") + "\"
