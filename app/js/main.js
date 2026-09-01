@@ -47,7 +47,7 @@ function closeOtherPanels(exceptEl) {
 // Lively 暂停壁纸前收起交互面板，恢复时保留低调工具栏。
 window.__w11ClosePanels = () => closeOtherPanels(null);
 
-// Lively 的 --pause-event 会调用此钩子，同步冻结视频和音乐。
+// Lively 的 --pause-event 会调用此钩子，同步冻结视频、音乐和单词轮换。
 const powerHandlers = [];
 let powerRunning = true;
 window.__w11Power = (run) => {
@@ -144,55 +144,74 @@ function updateCountdown() {
   cdDays.textContent = days >= 0 ? String(days) : '0';
 }
 
-/* ---------- 3500 词卡片（词组形式，示例数据） ---------- */
+let clockTimer = null;
+function restartClockTimer() {
+  clearInterval(clockTimer);
+  clockTimer = null;
+  if (!powerRunning) return;
+  tick();
+  clockTimer = setInterval(tick, 250);
+}
+
+powerHandlers.push((run) => {
+  if (run) restartClockTimer();
+  else {
+    clearInterval(clockTimer);
+    clockTimer = null;
+  }
+});
+
+/* ---------- 3500 词卡片（统一词池 + 加权抽取） ---------- */
 
 const SAMPLE_WORDS = [
   {
-    word: 'abandon', pos: 'v. 放弃；抛弃；离弃',
-    derivs: [
-      ['abandoned', 'adj. 被遗弃的；放纵的'],
-      ['abandonment', 'n. 放弃；遗弃'],
+    id: 'abandon', word: 'abandon', meanings: ['v. 放弃；抛弃；离弃'],
+    family: [
+      { word: 'abandoned', meaning: 'adj. 被遗弃的；放纵的' },
+      { word: 'abandonment', meaning: 'n. 放弃；遗弃' },
     ],
-    phrase: 'abandon oneself to 沉溺于；听任',
+    phrases: ['abandon oneself to 沉溺于；听任'], confusions: [],
+    studyGroupId: 'family:abandon', weight: 1.5,
   },
   {
-    word: 'ability', pos: 'n. 能力；才能；本领',
-    derivs: [
-      ['able', 'adj. 能够的；有能力的'],
-      ['unable', 'adj. 不能的；不会的'],
-      ['enable', 'v. 使能够；使成为可能'],
+    id: 'ability', word: 'ability', meanings: ['n. 能力；才能；本领'],
+    family: [
+      { word: 'able', meaning: 'adj. 能够的；有能力的' },
+      { word: 'unable', meaning: 'adj. 不能的；不会的' },
+      { word: 'enable', meaning: 'v. 使能够；使成为可能' },
     ],
-    phrase: 'to the best of one’s ability 竭尽全力',
+    phrases: ['to the best of one’s ability 竭尽全力'], confusions: [],
+    studyGroupId: 'family:ability', weight: 1.5,
   },
   {
-    word: 'absolute', pos: 'adj. 绝对的；完全的；确实的',
-    derivs: [
-      ['absolutely', 'adv. 绝对地；完全地'],
-      ['absoluteness', 'n. 绝对；完全'],
+    id: 'absolute', word: 'absolute', meanings: ['adj. 绝对的；完全的；确实的'],
+    family: [
+      { word: 'absolutely', meaning: 'adv. 绝对地；完全地' },
+      { word: 'absoluteness', meaning: 'n. 绝对；完全' },
     ],
-    phrase: 'absolute zero 绝对零度',
+    phrases: ['absolute zero 绝对零度'], confusions: [],
+    studyGroupId: 'family:absolute', weight: 1.5,
   },
   {
-    word: 'absorb', pos: 'v. 吸收；吸引；使专心',
-    derivs: [
-      ['absorbed', 'adj. 全神贯注的；专心的'],
-      ['absorption', 'n. 吸收；全神贯注'],
+    id: 'absorb', word: 'absorb', meanings: ['v. 吸收；吸引；使专心'],
+    family: [
+      { word: 'absorbed', meaning: 'adj. 全神贯注的；专心的' },
+      { word: 'absorption', meaning: 'n. 吸收；全神贯注' },
     ],
-    phrase: 'be absorbed in 专心于；沉浸于',
+    phrases: ['be absorbed in 专心于；沉浸于'], confusions: [],
+    studyGroupId: 'family:absorb', weight: 1.5,
   },
   {
-    word: 'academic', pos: 'adj. 学术的；学业的；理论的',
-    derivs: [
-      ['academy', 'n. 学院；研究院；学会'],
-      ['academically', 'adv. 学术上；学业上'],
+    id: 'academic', word: 'academic', meanings: ['adj. 学术的；学业的；理论的'],
+    family: [
+      { word: 'academy', meaning: 'n. 学院；研究院；学会' },
+      { word: 'academically', meaning: 'adv. 学术上；学业上' },
     ],
-    phrase: 'academic year 学年',
+    phrases: ['academic year 学年'], confusions: [],
+    studyGroupId: 'family:academic', weight: 1.5,
   },
 ];
 
-const WORD_PHRASES = window.W11_WORD_PHRASES || Object.create(null);
-const WORD_FAMILIES = window.W11_WORD_FAMILIES || Object.create(null);
-const WORD_CONFUSIONS = window.W11_WORD_CONFUSIONS || Object.create(null);
 const WORDS = Array.isArray(window.W11_WORDS) && window.W11_WORDS.length > 100
   ? window.W11_WORDS
   : SAMPLE_WORDS;
@@ -201,42 +220,16 @@ function wordKey(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-const FAMILY_BY_WORD = new Map();
-for (const [root, family] of Object.entries(WORD_FAMILIES)) {
-  if (!family || !Array.isArray(family.family)) continue;
-  const entry = { root, family };
-  FAMILY_BY_WORD.set(wordKey(root), entry);
-  for (const member of family.family) {
-    if (Array.isArray(member) && member[0]) FAMILY_BY_WORD.set(wordKey(member[0]), entry);
-  }
-}
-
-function familyForWord(word) {
-  return FAMILY_BY_WORD.get(wordKey(word.word));
-}
-
 function familyRowsForWord(word) {
-  const group = familyForWord(word);
-  if (group) {
-    const current = wordKey(word.word);
-    return group.family.family
-      .filter((member) => Array.isArray(member) && member[0] && member[1] && wordKey(member[0]) !== current)
-      .slice(0, 4);
-  }
-  return Array.isArray(word.derivs) ? word.derivs.slice(0, 4) : [];
+  return Array.isArray(word.family) ? word.family.slice(0, 4) : [];
 }
 
 function phrasesForWord(word) {
-  const group = familyForWord(word);
-  if (group && Array.isArray(group.family.phrases) && group.family.phrases.length) {
-    return group.family.phrases.slice(0, 2);
-  }
-  const phrase = word.phrase || WORD_PHRASES[group?.root] || WORD_PHRASES[wordKey(word.word)];
-  return phrase ? [phrase] : [];
+  return Array.isArray(word.phrases) ? word.phrases.slice(0, 2) : [];
 }
 
 function confusionForWord(word) {
-  return WORD_CONFUSIONS[wordKey(word.word)] || '';
+  return Array.isArray(word.confusions) ? word.confusions.join('；') : '';
 }
 
 function renderWordFamily(family) {
@@ -245,7 +238,9 @@ function renderWordFamily(family) {
   list.replaceChildren();
   list.hidden = family.length === 0;
   label.hidden = family.length === 0;
-  for (const [value, meaning] of family) {
+  for (const row of family) {
+    const value = row.word;
+    const meaning = row.meaning;
     const item = document.createElement('li');
     const familyWord = document.createElement('span');
     const description = document.createElement('span');
@@ -275,86 +270,29 @@ function renderWordConfusion(confusion) {
   note.textContent = confusion;
 }
 
-const EASY_WORDS = new Set(`
-  a an and or but the this that these those i you he she it we they me him her us my your his its our their
-  be am is are was were been being do does did have has had can could may might must shall should will would
-  not no yes all any some each every both either neither one two three first last other another same own
-  in on at by for from to of with about after before over under between through during into out up down off
-  here there where when why how who what which than then if because while although as so also only even just
-  very too more most less least much many few little enough again once always often sometimes never ever
-  good bad big small long short high low old young new early late right wrong true false easy hard simple
-  day week month year time today tomorrow yesterday morning afternoon evening night now soon still already
-  man woman boy girl child children people person family friend name home house room school class teacher student
-  book pen paper desk chair door window road street city town country world place thing way side part kind type
-  food water bread milk tea coffee fruit rice meat egg fish money shop store market work job office company
-  go come get make take give put keep let help use need want like love know think see look watch hear say tell
-  ask answer call talk speak read write learn study play run walk sit stand open close start stop turn move live
-  eat drink sleep buy sell pay wait meet find show bring carry leave hold wear wash clean cook drive ride fly
-  happy sad nice fine well great best better worst important different public common free full ready sure
-  red blue green black white yellow brown hot cold warm cool light dark fast slow near far strong weak busy
-`.trim().split(/\s+/));
-
-function hasPhraseSupport(word) {
-  const group = familyForWord(word);
-  return Boolean(
-    (group && Array.isArray(group.family.phrases) && group.family.phrases.length)
-    || word.phrase
-    || WORD_PHRASES[group?.root]
-    || WORD_PHRASES[wordKey(word.word)],
-  );
-}
-
 function studyGroupKey(word) {
-  const family = familyForWord(word);
-  return family ? `family:${family.root}` : `word:${wordKey(word.word)}`;
+  return word.studyGroupId || `entry:${word.id || wordKey(word.word)}`;
 }
-
-const WORD_BUCKETS = {
-  family: [],
-  phrase: [],
-  confusion: [],
-  basic: [],
-  all: WORDS.map((_, index) => index),
-};
-
-WORDS.forEach((word, index) => {
-  const hasFamily = Boolean(familyForWord(word));
-  const hasPhrase = hasPhraseSupport(word);
-  const isBasic = EASY_WORDS.has(wordKey(word.word));
-  if (hasFamily && hasPhrase) WORD_BUCKETS.family.push(index);
-  if (!hasFamily && hasPhrase && !isBasic) WORD_BUCKETS.phrase.push(index);
-  if (confusionForWord(word)) WORD_BUCKETS.confusion.push(index);
-  if (isBasic && hasPhrase) WORD_BUCKETS.basic.push(index);
-});
 
 const RECENT_GROUP_LIMIT = 18;
 const recentStudyGroups = [];
+const WORD_INDICES = WORDS.map((_, index) => index);
 
-function chooseFromBucket(indices) {
-  const fresh = indices.filter((index) => !recentStudyGroups.includes(studyGroupKey(WORDS[index])));
-  const choices = fresh.length ? fresh : indices;
-  return choices[Math.floor(Math.random() * choices.length)];
+function studyWeight(word) {
+  const value = Number(word.weight);
+  return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
 function chooseStudyWordIndex() {
-  const roll = Math.random();
-  const preferred = roll < 0.60
-    ? 'family'
-    : roll < 0.85
-      ? 'phrase'
-      : roll < 0.95
-        ? 'confusion'
-        : 'basic';
-  const fallbacks = {
-    family: ['phrase', 'confusion', 'basic', 'all'],
-    phrase: ['family', 'confusion', 'basic', 'all'],
-    confusion: ['family', 'phrase', 'basic', 'all'],
-    basic: ['family', 'phrase', 'confusion', 'all'],
-  };
-  for (const bucket of [preferred, ...fallbacks[preferred]]) {
-    if (WORD_BUCKETS[bucket].length) return chooseFromBucket(WORD_BUCKETS[bucket]);
+  const fresh = WORD_INDICES.filter((index) => !recentStudyGroups.includes(studyGroupKey(WORDS[index])));
+  const choices = fresh.length ? fresh : WORD_INDICES;
+  const total = choices.reduce((sum, index) => sum + studyWeight(WORDS[index]), 0);
+  let roll = Math.random() * total;
+  for (const index of choices) {
+    roll -= studyWeight(WORDS[index]);
+    if (roll < 0) return index;
   }
-  return 0;
+  return choices[choices.length - 1] || 0;
 }
 
 function rememberStudyGroup(word) {
@@ -368,12 +306,13 @@ function rememberStudyGroup(word) {
 const successIndex = WORDS.findIndex((word) => wordKey(word.word) === 'success');
 let wordIndex = successIndex >= 0 ? successIndex : 0;
 let wordTimer = null;
+let wordTransitionTimer = null;
 const wcInner = $('wcInner');
 
 function renderWord(i) {
   const w = WORDS[i];
   $('wcWord').textContent = w.word;
-  $('wcPos').textContent = w.pos;
+  $('wcPos').textContent = Array.isArray(w.meanings) ? w.meanings.join('；') : '';
   renderWordFamily(familyRowsForWord(w));
   renderWordPhrases(phrasesForWord(w));
   renderWordConfusion(confusionForWord(w));
@@ -382,26 +321,38 @@ function renderWord(i) {
 }
 
 function nextWord(immediate = false) {
-  let i = wordIndex;
-  for (let attempts = 0; attempts < 8 && WORDS.length > 1 && i === wordIndex; attempts += 1) {
-    i = chooseStudyWordIndex();
-  }
-  if (WORDS.length > 1 && i === wordIndex) i = (wordIndex + 1) % WORDS.length;
+  if (!powerRunning && !immediate) return;
+  const i = chooseStudyWordIndex();
   wordIndex = i;
 
   if (immediate) { renderWord(i); return; }
+  clearTimeout(wordTransitionTimer);
   wcInner.classList.add('fade');
-  setTimeout(() => {
+  wordTransitionTimer = setTimeout(() => {
+    wordTransitionTimer = null;
     renderWord(i);
     wcInner.classList.remove('fade');
   }, 460);
 }
 
-function restartWordTimer() {
+function stopWordTimer() {
   clearInterval(wordTimer);
+  wordTimer = null;
+  clearTimeout(wordTransitionTimer);
+  wordTransitionTimer = null;
+  wcInner.classList.remove('fade');
+}
+
+function restartWordTimer() {
+  stopWordTimer();
+  if (!powerRunning) return;
   const sec = Math.min(600, Math.max(5, Number(settings.wordInterval) || 50));
   wordTimer = setInterval(() => nextWord(), sec * 1000);
 }
+
+powerHandlers.push((run) => {
+  if (run) restartWordTimer(); else stopWordTimer();
+});
 
 $('wcNext').addEventListener('click', () => {
   nextWord();
@@ -1105,7 +1056,7 @@ function applyBgMode() {
     bgVideo.load();
   }
 
-  if (settings.bgMode === 'pause' || document.hidden || !powerRunning) {
+  if (settings.bgMode === 'pause' || !powerRunning) {
     bgVideo.pause();               // 冻结当前帧 = 静态壁纸，最省性能
   } else {
     bgVideo.play().catch((error) => runtimeLog('video play rejected: ' + error.message));
@@ -1131,16 +1082,11 @@ powerHandlers.push((run) => {
   if (run) applyBgMode(); else { bgVideo.pause(); applyCameraInUse(false); }
 });
 
-/* ---------- 性能：页面不可见时全部停摆 ---------- */
-
-document.addEventListener('visibilitychange', () => {
-  applyBgMode();
-  // setInterval 在页面隐藏时浏览器会自动限流，无需额外处理
-});
-
 /* ---------- 摄像头使用提示（有应用占用摄像头时旋转「换一个」图标） ---------- */
 
 let cameraBusy = false;
+let cameraTimer = null;
+let cameraController = null;
 
 function applyCameraInUse(on) {
   $('wcNext').classList.toggle('camera-active', Boolean(on));
@@ -1149,9 +1095,10 @@ function applyCameraInUse(on) {
 }
 
 function pollCamera() {
-  if (cameraBusy || !powerRunning || document.hidden) return;
+  if (cameraBusy || !powerRunning) return;
   cameraBusy = true;
-  const controller = new AbortController();
+  cameraController = new AbortController();
+  const controller = cameraController;
   const timer = setTimeout(() => controller.abort(), 800);
   fetch(apiBase() + '/camera?t=' + Date.now(), { cache: 'no-store', signal: controller.signal })
     .then((response) => response.ok ? response.json() : null)
@@ -1159,23 +1106,44 @@ function pollCamera() {
     .catch(() => applyCameraInUse(false))
     .finally(() => {
       clearTimeout(timer);
-      cameraBusy = false;
+      if (cameraController === controller) {
+        cameraController = null;
+        cameraBusy = false;
+      }
     });
 }
 
-setInterval(pollCamera, 1000);
+function restartCameraPolling() {
+  clearInterval(cameraTimer);
+  cameraTimer = null;
+  if (!powerRunning) return;
+  pollCamera();
+  cameraTimer = setInterval(pollCamera, 1000);
+}
+
+powerHandlers.push((run) => {
+  if (run) restartCameraPolling();
+  else {
+    clearInterval(cameraTimer);
+    cameraTimer = null;
+    if (cameraController) cameraController.abort();
+    cameraController = null;
+    cameraBusy = false;
+    applyCameraInUse(false);
+  }
+});
 
 /* ---------- 启动 ---------- */
 
 applySettings();
 renderWord(wordIndex);
 restartWordTimer();
-tick();
-setInterval(tick, 250);
+restartClockTimer();
 updateCountdown();
 loadHomework();
 applyMediaLibrary(window.W11_MEDIA_LIBRARY);
 applyBgMode();
+restartCameraPolling();
 
 // 调试钩子：?hw=1 直接打开作业板（?music=1 由 player.js 处理）
 const debugParams = new URLSearchParams(location.search);

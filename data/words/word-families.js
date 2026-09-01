@@ -1,7 +1,8 @@
 /*
  * Curated high-school word families. These are derivational relationships
  * (noun / verb / adjective / adverb), not tense or plural inflections.
- * Every member is checked against the local vocabulary list by check-lively.
+ * Members may be display-only words outside the drawable source vocabulary.
+ * The build step embeds each reviewed relation into the unified runtime table.
  */
 'use strict';
 
@@ -53,7 +54,6 @@
     challenge: group([['challenging', 'adj. 有挑战性的']]),
     change: group([['changeable', 'adj. 易变的；多变的']]),
     choose: group([['choice', 'n. 选择；抉择']]),
-    civilize: group([['civilization', 'n. 文明'], ['civilized', 'adj. 文明的']]),
     clear: group([['clearly', 'adv. 清楚地；显然地'], ['unclear', 'adj. 不清楚的']]),
     collect: group([['collection', 'n. 收集；收藏品'], ['collector', 'n. 收藏者'], ['collective', 'adj. 集体的']]),
     combine: group([['combination', 'n. 结合；组合']]),
@@ -74,12 +74,10 @@
     convince: group([['convinced', 'adj. 确信的'], ['convincing', 'adj. 令人信服的']]),
     correct: group([['correction', 'n. 改正；纠正'], ['correctly', 'adv. 正确地'], ['incorrect', 'adj. 不正确的']]),
     create: group([['creation', 'n. 创造；作品'], ['creative', 'adj. 有创造力的'], ['creatively', 'adv. 创造性地']]),
-    criticize: group([['criticism', 'n. 批评'], ['critical', 'adj. 批评的；关键的'], ['critically', 'adv. 批判性地；严重地']]),
     culture: group([['cultural', 'adj. 文化的'], ['culturally', 'adv. 在文化上']]),
     danger: group([['dangerous', 'adj. 危险的'], ['dangerously', 'adv. 危险地']]),
     decide: group([['decision', 'n. 决定'], ['decisive', 'adj. 决定性的'], ['decisively', 'adv. 果断地']]),
     decorate: group([['decoration', 'n. 装饰；装饰品']]),
-    define: group([['definition', 'n. 定义'], ['definite', 'adj. 明确的；肯定的'], ['definitely', 'adv. 肯定地']]),
     deliver: group([['delivery', 'n. 递送；传达']]),
     depend: group([['dependence', 'n. 依赖'], ['dependent', 'adj. 依赖的'], ['independent', 'adj. 独立的'], ['independently', 'adv. 独立地']]),
     describe: group([['description', 'n. 描述'], ['descriptive', 'adj. 描述性的']]),
@@ -104,7 +102,6 @@
     enter: group([['entrance', 'n. 入口；进入']]),
     environment: group([['environmental', 'adj. 环境的'], ['environmentally', 'adv. 在环境方面']], ['protect the environment 保护环境', 'environmentally friendly 环保的']),
     equip: group([['equipment', 'n. 设备；装备']]),
-    establish: group([['establishment', 'n. 建立；机构']]),
     evaluate: group([['evaluation', 'n. 评价；评估']]),
     examine: group([['examination', 'n. 考试；检查'], ['examiner', 'n. 考官；检查者']]),
     exist: group([['existence', 'n. 存在'], ['existing', 'adj. 现存的']]),
@@ -115,12 +112,10 @@
     express: group([['expression', 'n. 表达；表情'], ['expressive', 'adj. 富有表现力的']]),
     fail: group([['failure', 'n. 失败；失败的人']]),
     familiar: group([['familiarity', 'n. 熟悉；通晓'], ['unfamiliar', 'adj. 不熟悉的']]),
-    fashion: group([['fashionable', 'adj. 流行的；时髦的']]),
     fear: group([['fearful', 'adj. 害怕的；可怕的'], ['fearless', 'adj. 无畏的']]),
     fit: group([['fitness', 'n. 健康；适合']]),
     flexible: group([['flexibility', 'n. 灵活性']]),
     fluent: group([['fluency', 'n. 流利']]),
-    formal: group([['formally', 'adv. 正式地'], ['informal', 'adj. 非正式的']]),
     fortunate: group([['fortunately', 'adv. 幸运地'], ['unfortunate', 'adj. 不幸的'], ['unfortunately', 'adv. 不幸地']]),
     free: group([['freedom', 'n. 自由'], ['freely', 'adv. 自由地']]),
     friend: group([['friendship', 'n. 友谊'], ['friendly', 'adj. 友好的']]),
@@ -155,7 +150,6 @@
     introduce: group([['introduction', 'n. 介绍；引入']]),
     invent: group([['invention', 'n. 发明'], ['inventor', 'n. 发明家'], ['innovative', 'adj. 创新的']]),
     invite: group([['invitation', 'n. 邀请']]),
-    involve: group([['involvement', 'n. 参与；牵涉']]),
     judge: group([['judgement', 'n. 判断；评价']]),
     know: group([['knowledge', 'n. 知识'], ['knowledgeable', 'adj. 博学的'], ['unknown', 'adj. 未知的']]),
     legal: group([['legally', 'adv. 合法地'], ['illegal', 'adj. 非法的']]),
@@ -163,13 +157,11 @@
     library: group([['librarian', 'n. 图书管理员']]),
     limit: group([['limitation', 'n. 限制；局限'], ['limited', 'adj. 有限的'], ['unlimited', 'adj. 无限的']]),
     locate: group([['location', 'n. 地点；位置'], ['local', 'adj. 当地的'], ['locally', 'adv. 在当地']]),
-    logic: group([['logical', 'adj. 合乎逻辑的'], ['logically', 'adv. 合乎逻辑地']]),
     luck: group([['lucky', 'adj. 幸运的'], ['luckily', 'adv. 幸运地'], ['unlucky', 'adj. 不幸的']]),
     manage: group([['management', 'n. 管理'], ['manager', 'n. 经理；管理者'], ['manageable', 'adj. 可处理的']]),
     meaning: group([['meaningful', 'adj. 有意义的'], ['meaningless', 'adj. 无意义的']]),
     measure: group([['measurement', 'n. 测量；尺寸']]),
     memory: group([['memorize', 'v. 记住；熟记'], ['memorable', 'adj. 值得纪念的']]),
-    migrate: group([['migration', 'n. 迁移；移居']]),
     modern: group([['modernize', 'v. 使现代化'], ['modernization', 'n. 现代化']]),
     motivate: group([['motivation', 'n. 动机；积极性'], ['motivated', 'adj. 有积极性的']]),
     move: group([['movement', 'n. 运动；移动']]),
@@ -218,7 +210,6 @@
     respond: group([['response', 'n. 回答；反应'], ['responsible', 'adj. 负责的'], ['responsibility', 'n. 责任']]),
     rest: group([['restful', 'adj. 使人得到休息的'], ['restless', 'adj. 不安宁的']]),
     revise: group([['revision', 'n. 修订；复习']]),
-    risk: group([['risky', 'adj. 有风险的']]),
     safe: group([['safety', 'n. 安全'], ['safely', 'adv. 安全地'], ['unsafe', 'adj. 不安全的']]),
     satisfy: group([['satisfaction', 'n. 满足；满意'], ['satisfactory', 'adj. 令人满意的']]),
     science: group([['scientific', 'adj. 科学的'], ['scientifically', 'adv. 科学地']]),
@@ -231,7 +222,6 @@
     similar: group([['similarity', 'n. 相似'], ['similarly', 'adv. 相似地']]),
     simple: group([['simply', 'adv. 简单地；仅仅'], ['simplify', 'v. 简化']]),
     society: group([['social', 'adj. 社会的'], ['socially', 'adv. 在社会上'], ['socialism', 'n. 社会主义']]),
-    solve: group([['solution', 'n. 解决办法；溶液'], ['solvable', 'adj. 可解决的']]),
     special: group([['specialize', 'v. 专门从事'], ['specialist', 'n. 专家'], ['especially', 'adv. 尤其']]),
     speak: group([['speaker', 'n. 演讲者；说话者'], ['speech', 'n. 演讲；言语'], ['spoken', 'adj. 口头的']]),
     standard: group([['standardize', 'v. 使标准化']]),
@@ -249,7 +239,6 @@
     tend: group([['tendency', 'n. 倾向；趋势']]),
     theory: group([['theoretical', 'adj. 理论的'], ['theoretically', 'adv. 理论上']]),
     think: group([['thought', 'n. 想法；思考'], ['thoughtful', 'adj. 深思的；体贴的']]),
-    threaten: group([['threat', 'n. 威胁'], ['threatening', 'adj. 威胁性的']]),
     tradition: group([['traditional', 'adj. 传统的'], ['traditionally', 'adv. 传统上']]),
     train: group([['training', 'n. 训练；培训'], ['trainer', 'n. 教练；培训师']]),
     translate: group([['translation', 'n. 翻译；译文'], ['translator', 'n. 翻译者']]),

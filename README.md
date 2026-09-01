@@ -10,7 +10,8 @@
 - 高考词表，随机展示中文释义、词族和常用搭配
 - 底部工具栏：音乐播放器、今日作业和壁纸设置
 - 本机音乐、LRC 歌词和网易云搜索
-- Lively 暂停壁纸时，同步暂停背景视频和音乐
+- Lively 暂停壁纸时，同步暂停背景视频、音乐和单词轮换
+- 一体化安装时自动启用 Lively 的 Windows 前台应用暂停判断
 
 ## 使用方法
 
@@ -68,11 +69,25 @@ local-homework/    作业图片
 
 ```powershell
 npm run dev             # 启动本地预览 http://127.0.0.1:1420
+npm run words:build     # 从人工维护源生成统一运行时词表
 npm run check           # 检查 Lively 项目和词库
 npm run package         # 生成 dist/wallpaper11-lively.zip
 npm run music:package   # 生成 dist/wallpaper11-music-setup.exe（备用）
 npm run setup           # 生成 dist/wallpaper11-setup.exe 一体化安装包（内嵌 Lively，离线安装）
 ```
+
+## 词库维护
+
+壁纸运行时只加载 `app/js/word-data.js`。这个文件由 `npm run words:build` 生成，不直接手工编辑。人工校订位于 `data/words/curation.js`，基础词表、词族、搭配和易混关系也统一保存在 `data/words/`；构建脚本负责按稳定 `id` 合并为一张运行时主表。
+
+如需从原始 Word 词表和 ECDICT 重新导入基础记录，使用：
+
+```powershell
+npm run words:import -- -Source <词表.docx> -DictionaryCsv <ecdict.csv>
+npm run words:build
+```
+
+ECDICT 只提供基础变形候选。同形词、大小写不同的 lexical entry、完整释义、词族和搭配以人工校订为准；`npm run check` 会同时检查生成文件是否过期、所有 `id` 是否唯一以及所有词条是否拥有正抽取权重。
 
 一体化安装包构建过程：本地需要 Inno Setup Compiler（`npm run setup` 找不到时会自动下载便携版到 `dist\.setup-build\`）；Lively 安装包按顺序使用 `LIVELY_SETUP_EXE` 环境变量指定的文件、`Downloads` 目录中已有的 `lively_setup_x86_full_v2210.exe`，或从 GitHub Release 下载并缓存到 `dist\.setup-build\lively\` 供后续复用。产物始终包含完整 Lively 安装包，目标机安装全程不需要联网。
 

@@ -29,6 +29,16 @@ function Read-Json {
     Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 }
 
+function Set-JsonIntegerProperty {
+    param([object]$Object, [string]$Name, [int]$Value)
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $Value
+    } else {
+        $property.Value = $Value
+    }
+}
+
 function Get-LivelyExe {
     foreach ($key in $script:LivelyUninstallKeys) {
         if (Test-Path -LiteralPath $key) {
@@ -114,6 +124,48 @@ function Start-LivelyAndWaitReady {
         Start-Sleep -Milliseconds 500
     }
     return $false
+}
+
+function Set-LivelyFocusPauseSettings {
+    param([string]$Exe)
+    $appDataDir = Join-Path $env:LOCALAPPDATA "Lively Wallpaper"
+    $settingsPath = Join-Path $appDataDir "Settings.json"
+
+    if (-not (Test-Path -LiteralPath $settingsPath)) {
+        Log-Info "Lively settings are not initialized; starting Lively once..."
+        if (-not (Start-LivelyAndWaitReady -Exe $Exe -WaitSeconds 40)) {
+            throw "Lively did not initialize Settings.json."
+        }
+        Start-Sleep -Milliseconds 750
+        Stop-Lively -Exe $Exe
+    }
+    if (-not (Test-Path -LiteralPath $settingsPath)) {
+        throw "Lively Settings.json was not found at '$settingsPath'."
+    }
+
+    $settings = Read-Json -Path $settingsPath
+    # Lively enum value 0 means pause. Foreground monitoring makes Windows focus,
+    # rather than wallpaper coverage area, the single source of pause decisions.
+    Set-JsonIntegerProperty -Object $settings -Name "AppFocusPause" -Value 0
+    Set-JsonIntegerProperty -Object $settings -Name "AppFullscreenPause" -Value 0
+    Set-JsonIntegerProperty -Object $settings -Name "ProcessMonitorAlgorithm" -Value 0
+
+    $tempPath = Join-Path $appDataDir "Settings.wallpaper11.tmp.json"
+    try {
+        $json = $settings | ConvertTo-Json -Depth 100 -Compress
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        [IO.File]::WriteAllText($tempPath, $json, $utf8)
+        $verified = Read-Json -Path $tempPath
+        if ([int]$verified.AppFocusPause -ne 0 -or
+            [int]$verified.AppFullscreenPause -ne 0 -or
+            [int]$verified.ProcessMonitorAlgorithm -ne 0) {
+            throw "Lively focus pause settings failed verification."
+        }
+        Move-Item -LiteralPath $tempPath -Destination $settingsPath -Force
+    } finally {
+        Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+    }
+    Log-Info "Configured Lively to pause for the Windows foreground application."
 }
 
 function Test-WallpaperApplied {
@@ -222,6 +274,7 @@ if (-not (Test-Path -LiteralPath $LivelyZip)) {
 
 Log-Info "Stopping Lively for wallpaper import..."
 Stop-Lively -Exe $exe
+Set-LivelyFocusPauseSettings -Exe $exe
 
 $wallpaperDir = Get-WallpaperDir
 $wallpapersRoot = Join-Path $wallpaperDir "wallpapers"
