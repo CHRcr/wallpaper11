@@ -144,7 +144,7 @@ for (const [index, word] of words.entries()) {
   difficultyCounts[word.difficulty] += 1;
   totalWeight += word.weight;
 
-  const minimumDifficultyWeight = { core: 1, advanced: 3, challenge: 5 }[word.difficulty];
+  const minimumDifficultyWeight = { core: 1, advanced: 2, challenge: 3 }[word.difficulty];
   if (word.weight < minimumDifficultyWeight) {
     throw new Error(`Difficulty bonus is missing from vocabulary entry: ${word.id}`);
   }
@@ -223,7 +223,7 @@ for (const displayWord of ['abolish', 'ambition', 'detective', 'acquire', 'conse
 for (const displayWord of ['hypothesis', 'interpret', 'strategy', 'virtual']) {
   const reviewed = entry(displayWord);
   if (!reviewed || reviewed.difficulty !== 'challenge'
-    || reviewed.family.length === 0 || reviewed.phrases.length === 0 || reviewed.weight < 5) {
+    || reviewed.family.length === 0 || reviewed.phrases.length === 0 || reviewed.weight < 3) {
     throw new Error(`Qingbei challenge entry is incomplete: ${displayWord}`);
   }
 }

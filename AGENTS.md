@@ -27,7 +27,7 @@
 - **运行载体：Lively Wallpaper Web 壁纸。** `app/` 本身是可导入项目，入口为 `app/index.html`。不再维护 Tauri、WorkerW、自定义透明浮层或独立 EXE。
 - **单页面交互：** 背景、主舞台、工具栏、播放器、作业板和设置全部位于同一个网页中。桌面嵌入、鼠标转发、DPI、多屏和暂停规则交给 Lively。
 - **Lively 接口：** `LivelyProperties.json` 提供持久设置和文件选择；`LivelyInfo.json` 使用 `--pause-event true`；`livelyWallpaperPlaybackChanged` 同步暂停视频、音乐和单词轮换。
-- **单词数据：** `data/words/` 保留基础词表、词族、搭配、易混词、人工难度分级和校订；`npm run words:build` 生成唯一运行时表 `app/js/word-data.js`。运行时使用单一词池与正权重抽取，不再维护 `basic` 或多 bucket。基础权重为 1；进阶/挑战分别额外加 2/4；词族、搭配、易混关系分别再加 0.3/0.2/0.2。
+- **单词数据：** `data/words/` 保留基础词表、词族、搭配、易混词、人工难度分级和校订；`npm run words:build` 生成唯一运行时表 `app/js/word-data.js`。运行时使用单一词池与正权重抽取，不再维护 `basic` 或多 bucket。基础权重为 1；进阶/挑战分别额外加 1/2；词族、搭配、易混关系分别再加 0.3/0.2/0.2。
 - **媒体不进 Git：** 用户保留 `local-video/`、`local-music/`、`local-homework/`，运行 `npm run media` 同步到 `app/media/` 并生成 `media-library.js`。打包命令为 `npm run package`。
 - **背景适配：** 视频使用 `object-fit: cover` 覆盖整个画布。默认按文件名选择第一支，也可在 Lively 自定义面板中指定。
 - **主题：** 暮色暖金。令牌在 `app/css/style.css :root`，包括 `--gold: #ffcf9c`、`--rose: #f2a7b3`、烟熏紫玻璃和暖白文字。

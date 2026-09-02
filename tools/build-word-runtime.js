@@ -8,7 +8,7 @@ const ROOT = path.resolve(__dirname, '..');
 const SOURCE_DIR = path.join(ROOT, 'data', 'words');
 const OUTPUT = path.join(ROOT, 'app', 'js', 'word-data.js');
 const CHECK_ONLY = process.argv.includes('--check');
-const DIFFICULTY_BONUS = Object.freeze({ core: 0, advanced: 2, challenge: 4 });
+const DIFFICULTY_BONUS = Object.freeze({ core: 0, advanced: 1, challenge: 2 });
 
 function loadSources() {
   const context = { window: {} };
