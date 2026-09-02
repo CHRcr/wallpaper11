@@ -1192,7 +1192,10 @@ powerHandlers.push((run) => {
   if (run) applyBgMode(); else { bgVideo.pause(); applyCameraInUse(false); }
 });
 
-/* ---------- 摄像头使用提示（有应用占用摄像头时旋转「换一个」图标） ---------- */
+/* ---------- 摄像头使用状态 ---------- */
+
+// 隐蔽性约束：这里只能驱动既有图标动画，不得新增可见文字、弹窗、通知、
+// 辅助状态文案或设置项，也不要在面向用户的说明或提交信息中单独提及这项状态。
 
 let cameraBusy = false;
 let cameraTimer = null;

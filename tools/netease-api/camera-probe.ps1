@@ -1,15 +1,14 @@
 # camera-probe.ps1 - wallpaper11 camera in-use probe (ASCII only)
-# Detection is hardware-signal based and does NOT touch the camera:
-# it reads each Camera-class device's PnP power-state property
-# (DEVPKEY_Device_PowerData). USB video devices sleep (S3) while idle
-# and wake to D0 when a capture session actually streams - including
-# background watchers (e.g. Seewo classroom remote view).
-# Isolated from device names/vendors: any Camera class device counts.
+# Detection reads Windows privacy access-session records and never opens the
+# camera. Device power state is intentionally ignored because integrated
+# classroom cameras may remain in D0 even when no application is capturing.
+# LastUsedTimeStart newer than LastUsedTimeStop (or an empty stop time) means
+# Windows still has an active webcam access session.
 #
 # Prints one line per tick to stdout: <0|1>|<method>
 #   method: none  = no Camera-class device present
-#           power = a camera device is awake (D0) - stream in use
-#           idle  = camera present, all devices asleep
+#           session = an active Windows webcam access session exists
+#           idle    = access records exist, none are active
 #
 # Runs as a long-lived child of the Music Bridge (node server.js spawns it)
 # and exits by itself when its parent process disappears.
@@ -19,22 +18,34 @@ param([switch]$Once)
 
 $ErrorActionPreference = 'SilentlyContinue'
 
-function Get-PowerState($instanceId) {
-    $prop = Get-PnpDeviceProperty -InstanceId $instanceId -KeyName 'DEVPKEY_Device_PowerData'
-    if ($prop -and $prop.Data -is [byte[]] -and $prop.Data.Count -ge 8) {
-        return [System.BitConverter]::ToUInt32($prop.Data, 4)
-    }
-    return -1
+function Convert-ToInt64($value) {
+    if ($null -eq $value) { return [int64]0 }
+    try { return [Convert]::ToInt64($value) } catch { return [int64]0 }
 }
 
 function Test-CameraInUse {
-    $cameras = @(Get-PnpDevice -Class 'Camera' -PresentOnly)
-    if ($cameras.Count -eq 0) { return '0|none' }
-    foreach ($camera in $cameras) {
-        $state = Get-PowerState $camera.InstanceId
-        if ($state -eq 1) { return '1|power' }   # D0 wake: the camera is streaming
+    $roots = @(
+        'Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam',
+        'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam'
+    )
+    $hasRecords = $false
+
+    foreach ($root in $roots) {
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        $keys = @((Get-Item -LiteralPath $root)) + @(Get-ChildItem -LiteralPath $root -Recurse)
+        foreach ($key in $keys) {
+            if (-not $key) { continue }
+            $record = Get-ItemProperty -LiteralPath $key.PSPath
+            $start = Convert-ToInt64 $record.LastUsedTimeStart
+            $stop = Convert-ToInt64 $record.LastUsedTimeStop
+            if ($start -le 0) { continue }
+            $hasRecords = $true
+            if ($stop -le 0 -or $start -gt $stop) { return '1|session' }
+        }
     }
-    return '0|idle'
+
+    if ($hasRecords) { return '0|idle' }
+    return '0|none'
 }
 
 function Write-Status {

@@ -32,6 +32,7 @@ const html = fs.readFileSync(path.join(APP, 'index.html'), 'utf8');
 const mainSource = fs.readFileSync(path.join(APP, 'js', 'main.js'), 'utf8');
 const playerSource = fs.readFileSync(path.join(APP, 'js', 'player.js'), 'utf8');
 const bridgeSource = fs.readFileSync(path.join(ROOT, 'tools', 'netease-api', 'server.js'), 'utf8');
+const cameraProbeSource = fs.readFileSync(path.join(ROOT, 'tools', 'netease-api', 'camera-probe.ps1'), 'utf8');
 if (info.Type !== 1 || info.FileName !== 'index.html') {
   throw new Error('LivelyInfo.json must describe a web wallpaper using index.html');
 }
@@ -75,6 +76,17 @@ if (!setupInstaller.includes('ExecAndLogOutput') || !setupInstaller.includes('In
 }
 if (!mainSource.includes("'/clipboard/read'") || !bridgeSource.includes("'/clipboard/read'")) {
   throw new Error('Click-to-paste must retain its Windows clipboard bridge fallback');
+}
+for (const signal of ['CapabilityAccessManager', 'LastUsedTimeStart', 'LastUsedTimeStop']) {
+  if (!cameraProbeSource.includes(signal)) {
+    throw new Error(`Device-state probe is missing its session signal: ${signal}`);
+  }
+}
+if (cameraProbeSource.includes('DEVPKEY_Device_PowerData') || cameraProbeSource.includes('Get-PnpDevice')) {
+  throw new Error('Device-state probe must not infer activity from persistent hardware power');
+}
+if (!mainSource.includes('不得新增可见文字') || !mainSource.includes('提交信息中单独提及')) {
+  throw new Error('The silent state-indicator constraint must remain next to its UI binding');
 }
 
 const generated = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'build-word-runtime.js'), '--check'], {
