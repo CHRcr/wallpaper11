@@ -53,6 +53,45 @@ const
   LivelyKeyBase = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#LivelyAppId}_is1';
   LivelyKeyBase32 = 'Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{#LivelyAppId}_is1';
 
+var
+  InstallLogMemo: TNewMemo;
+
+procedure AppendInstallLog(const LogText: String);
+var
+  line: String;
+begin
+  line := Trim(LogText);
+  if line = '' then
+    exit;
+  StringChangeEx(line, '[wallpaper11] ', '', True);
+  InstallLogMemo.Lines.Add(line);
+  InstallLogMemo.SelStart := Length(InstallLogMemo.Text);
+  InstallLogMemo.SelLength := 0;
+end;
+
+procedure InstallOutput(const S: String; const Error, FirstLine: Boolean);
+begin
+  if Error then
+    AppendInstallLog('错误：' + S)
+  else
+    AppendInstallLog(S);
+  WizardForm.Repaint;
+end;
+
+procedure InitializeWizard();
+begin
+  InstallLogMemo := TNewMemo.Create(WizardForm);
+  InstallLogMemo.Parent := WizardForm.InstallingPage;
+  InstallLogMemo.Left := WizardForm.ProgressGauge.Left;
+  InstallLogMemo.Top := WizardForm.ProgressGauge.Top + WizardForm.ProgressGauge.Height + ScaleY(12);
+  InstallLogMemo.Width := WizardForm.ProgressGauge.Width;
+  InstallLogMemo.Height := WizardForm.InstallingPage.ClientHeight - InstallLogMemo.Top - ScaleY(8);
+  InstallLogMemo.ReadOnly := True;
+  InstallLogMemo.ScrollBars := ssVertical;
+  InstallLogMemo.WordWrap := True;
+  InstallLogMemo.TabStop := False;
+end;
+
 function LivelyKeyHasEntry(RootKey: Integer; SubKey: String): Boolean;
 var
   value: String;
@@ -78,6 +117,7 @@ begin
   WizardForm.StatusLabel.Caption := StatusText;
   WizardForm.FilenameLabel.Caption := '';
   WizardForm.ProgressGauge.Style := npbstMarquee;
+  AppendInstallLog(StatusText);
 end;
 
 procedure RunInstallSteps();
@@ -94,7 +134,9 @@ begin
     cmd := '-NoProfile -ExecutionPolicy Bypass -File "' +
       ExpandConstant('{tmp}\scripts\download-lively.ps1') + '" -Local "' +
       ExpandConstant('{tmp}\payload\{#LivelySetupName}') + '"';
-    Exec(psExe, cmd, '', SW_HIDE, ewWaitUntilTerminated, resultCode);
+    if not ExecAndLogOutput(psExe, cmd, '', SW_HIDE, ewWaitUntilTerminated,
+      resultCode, @InstallOutput) then
+      RaiseException('无法启动 Lively Wallpaper 安装程序。');
     if resultCode <> 0 then
       RaiseException('Lively Wallpaper installation failed (exit code ' + IntToStr(resultCode) + ').');
   end;
@@ -104,7 +146,9 @@ begin
     ExpandConstant('{tmp}\scripts\lively-install.ps1') +
     '" -LivelyZip "' + ExpandConstant('{tmp}\payload\wallpaper11-lively.zip') +
     '" -BridgeZip "' + ExpandConstant('{tmp}\payload\bridge-payload.zip') + '"';
-  Exec(psExe, cmd, '', SW_HIDE, ewWaitUntilTerminated, resultCode);
+  if not ExecAndLogOutput(psExe, cmd, '', SW_HIDE, ewWaitUntilTerminated,
+    resultCode, @InstallOutput) then
+    RaiseException('无法启动 wallpaper11 安装程序。');
   if resultCode <> 0 then
     RaiseException('wallpaper11 installation failed (exit code ' + IntToStr(resultCode) + ').');
 end;

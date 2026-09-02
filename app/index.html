@@ -38,27 +38,41 @@
     </div>
 
     <section class="wordcard glass" id="wordCard" aria-live="polite">
-      <div class="wc-inner" id="wcInner">
-        <div class="wc-head">
-          <span class="wc-word" id="wcWord">abandon</span>
-          <button class="wc-next" id="wcNext" type="button" aria-label="换一个单词" title="换一个单词">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-              <path d="M21 3v5h-5"/>
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-              <path d="M8 16H3v5"/>
-            </svg>
-          </button>
-        </div>
-        <div class="wc-pos" id="wcPos"></div>
-        <div class="wc-family-label" id="wcFamilyLabel" hidden>词族</div>
-        <ul class="wc-derivs" id="wcDerivs"></ul>
-        <div class="wc-confusion" id="wcConfusion" hidden></div>
-        <div class="wc-foot">
-          <ul class="wc-phrases" id="wcPhrases"></ul>
-          <span class="wc-count" id="wcCount"></span>
-        </div>
+      <header class="wc-pair-head">
+        <span>VOCABULARY · 2</span>
+        <button class="wc-next" id="wcNext" type="button" aria-label="换一组单词" title="换一组单词">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+            <path d="M8 16H3v5"/>
+          </svg>
+        </button>
+      </header>
+      <div class="wc-inner wc-grid" id="wcInner">
+        <article class="wc-entry" data-word-slot="0">
+          <div class="wc-head"><span class="wc-word">abandon</span></div>
+          <div class="wc-pos"></div>
+          <div class="wc-family-label" hidden>词族</div>
+          <ul class="wc-derivs"></ul>
+          <div class="wc-confusion" hidden></div>
+          <div class="wc-foot">
+            <ul class="wc-phrases"></ul>
+            <span class="wc-count"></span>
+          </div>
+        </article>
+        <article class="wc-entry" data-word-slot="1">
+          <div class="wc-head"><span class="wc-word">ability</span></div>
+          <div class="wc-pos"></div>
+          <div class="wc-family-label" hidden>词族</div>
+          <ul class="wc-derivs"></ul>
+          <div class="wc-confusion" hidden></div>
+          <div class="wc-foot">
+            <ul class="wc-phrases"></ul>
+            <span class="wc-count"></span>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -95,7 +109,7 @@
             <circle cx="9" cy="9" r="2"/>
             <path d="m21 15-4.5-4.5L6 21"/>
           </svg>
-          <div class="hw-hint">把图片拖到这里，或点一下选择</div>
+          <div class="hw-hint">点击选择作业图片</div>
         </div>
         <img class="hw-img" id="hwImg" alt="今日作业" hidden draggable="false">
       </div>
@@ -125,113 +139,166 @@
 
   <!-- 设置面板 -->
   <div class="overlay" id="settingsMask" hidden>
-    <div class="panel glass-strong" role="dialog" aria-label="设置">
+    <div class="panel settings-panel glass-strong" role="dialog" aria-label="设置">
       <header class="panel-head">
-        <span>设置</span>
+        <span>设置 <small id="settingsSaveState">已保存到本机</small></span>
         <button class="panel-close" id="settingsClose" title="关闭">&#10005;</button>
       </header>
-      <div class="panel-body" data-scroll-surface tabindex="0" role="region" aria-label="设置内容">
-        <div class="field field-block theme-field">
-          <span class="field-name">主题</span>
-          <div class="theme-choices" id="setTheme" role="radiogroup" aria-label="主题">
-            <button class="theme-choice" type="button" role="radio" data-value="calm" aria-checked="true">
-              <i class="theme-preview calm" aria-hidden="true"></i>
-              <span>沉静素雅<small>静态 · 低功耗</small></span>
-            </button>
-            <button class="theme-choice" type="button" role="radio" data-value="sunset" aria-checked="false">
-              <i class="theme-preview sunset" aria-hidden="true"></i>
-              <span>暮色暖金<small>动态 · 视频背景</small></span>
-            </button>
-          </div>
-        </div>
-        <div class="field field-block date-field">
-          <span class="field-name">高考日期</span>
-          <button class="date-trigger" id="setExamDate" type="button"
-                  aria-expanded="false" aria-controls="examCalendar">
-            <span id="setExamDateText">2027年6月7日</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-              <rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>
-            </svg>
-          </button>
-          <div class="inline-calendar" id="examCalendar" hidden>
-            <div class="calendar-head">
-              <button type="button" id="calPrevYear" title="上一年" aria-label="上一年">«</button>
-              <button type="button" id="calPrevMonth" title="上个月" aria-label="上个月">‹</button>
-              <strong id="calMonth">2027年6月</strong>
-              <button type="button" id="calNextMonth" title="下个月" aria-label="下个月">›</button>
-              <button type="button" id="calNextYear" title="下一年" aria-label="下一年">»</button>
+      <div class="settings-layout">
+        <nav class="settings-nav" id="settingsNav" aria-label="设置分类">
+          <button type="button" class="selected" data-settings-page="appearance"><strong>外观</strong><small>主题与比例</small></button>
+          <button type="button" data-settings-page="study"><strong>学习</strong><small>高考与单词</small></button>
+          <button type="button" data-settings-page="music"><strong>音乐</strong><small>Bridge 与登录</small></button>
+          <button type="button" data-settings-page="about"><strong>关于</strong><small>数据与项目</small></button>
+        </nav>
+
+        <div class="settings-pages">
+          <section class="settings-page selected" data-settings-panel="appearance" aria-label="外观设置">
+            <div class="settings-page-head"><span>外观</span><small>适配希沃 1080p 与 Windows 缩放</small></div>
+            <div class="settings-grid">
+              <div class="field field-block theme-field settings-span-2">
+                <span class="field-name">主题</span>
+                <div class="theme-choices" id="setTheme" role="radiogroup" aria-label="主题">
+                  <button class="theme-choice" type="button" role="radio" data-value="calm" aria-checked="true">
+                    <i class="theme-preview calm" aria-hidden="true"></i>
+                    <span>沉静素雅<small>静态 · 低功耗</small></span>
+                  </button>
+                  <button class="theme-choice" type="button" role="radio" data-value="sunset" aria-checked="false">
+                    <i class="theme-preview sunset" aria-hidden="true"></i>
+                    <span>暮色暖金<small>动态 · 视频背景</small></span>
+                  </button>
+                </div>
+              </div>
+              <div class="field field-card">
+                <span class="field-name">界面缩放</span>
+                <div class="click-stepper" aria-label="界面缩放">
+                  <button type="button" id="setScaleDown" aria-label="缩小界面">−</button>
+                  <output id="setScaleValue">100%</output>
+                  <button type="button" id="setScaleUp" aria-label="放大界面">＋</button>
+                </div>
+              </div>
+              <div class="field field-card">
+                <span class="field-name">暮色主题视频</span>
+                <div class="setting-options" id="setBg" role="radiogroup" aria-label="暮色主题视频">
+                  <button type="button" role="radio" data-value="play">播放</button>
+                  <button type="button" role="radio" data-value="pause">冻结</button>
+                </div>
+              </div>
             </div>
-            <div class="calendar-week" aria-hidden="true">
-              <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+          </section>
+
+          <section class="settings-page" data-settings-panel="study" aria-label="学习设置" hidden>
+            <div class="settings-page-head"><span>学习</span><small>全部使用点击或剪贴板操作</small></div>
+            <div class="settings-grid study-settings-grid">
+              <div class="field field-block date-field">
+                <span class="field-name">高考日期</span>
+                <button class="date-trigger" id="setExamDate" type="button"
+                        aria-expanded="false" aria-controls="examCalendar">
+                  <span id="setExamDateText">2027年6月7日</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>
+                  </svg>
+                </button>
+                <div class="inline-calendar" id="examCalendar" hidden>
+                  <div class="calendar-head">
+                    <button type="button" id="calPrevYear" title="上一年" aria-label="上一年">«</button>
+                    <button type="button" id="calPrevMonth" title="上个月" aria-label="上个月">‹</button>
+                    <strong id="calMonth">2027年6月</strong>
+                    <button type="button" id="calNextMonth" title="下个月" aria-label="下个月">›</button>
+                    <button type="button" id="calNextYear" title="下一年" aria-label="下一年">»</button>
+                  </div>
+                  <div class="calendar-week" aria-hidden="true">
+                    <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+                  </div>
+                  <div class="calendar-days" id="calendarDays" role="grid" aria-label="选择高考日期"></div>
+                </div>
+              </div>
+              <div class="field field-block field-card">
+                <span class="field-name">倒计时标题</span>
+                <div class="title-presets" id="setExamTitleChoices" aria-label="倒计时标题">
+                  <button type="button" data-title-mode="year">距 2027 高考</button>
+                  <button type="button" data-title-mode="short">距高考</button>
+                  <button type="button" data-title-mode="countdown">高考倒计时</button>
+                </div>
+                <div class="paste-value-control">
+                  <output id="setExamTitleText">距 2027 高考</output>
+                  <button class="cookie-action" id="btnPasteExamTitle" type="button">粘贴标题</button>
+                </div>
+              </div>
+              <div class="field field-block field-card">
+                <span class="field-name">单词切换间隔</span>
+                <div class="setting-options four" id="setWordInterval" role="radiogroup" aria-label="单词切换间隔">
+                  <button type="button" role="radio" data-value="30">30 秒</button>
+                  <button type="button" role="radio" data-value="50">50 秒</button>
+                  <button type="button" role="radio" data-value="90">90 秒</button>
+                  <button type="button" role="radio" data-value="180">3 分钟</button>
+                </div>
+              </div>
+              <div class="field field-card">
+                <span class="field-name">时间制式</span>
+                <div class="setting-options" id="setHour12" role="radiogroup" aria-label="时间制式">
+                  <button type="button" role="radio" data-value="0">24 小时</button>
+                  <button type="button" role="radio" data-value="1">12 小时</button>
+                </div>
+              </div>
+              <label class="field field-card click-check">
+                <span class="field-name">显示秒</span>
+                <input type="checkbox" id="setShowSec">
+              </label>
             </div>
-            <div class="calendar-days" id="calendarDays" role="grid" aria-label="选择高考日期"></div>
-          </div>
-        </div>
-        <label class="field">
-          <span class="field-name">倒计时标题</span>
-          <input type="text" id="setExamTitle" maxlength="12" placeholder="距 2027 高考">
-        </label>
-        <label class="field">
-          <span class="field-name">单词切换间隔（秒）</span>
-          <input type="number" id="setWordInterval" min="5" max="600" step="5">
-        </label>
-        <div class="field">
-          <span class="field-name">时间制式</span>
-          <div class="setting-options" id="setHour12" role="radiogroup" aria-label="时间制式">
-            <button type="button" role="radio" data-value="0">24 小时</button>
-            <button type="button" role="radio" data-value="1">12 小时</button>
-          </div>
-        </div>
-        <label class="field">
-          <span class="field-name">显示秒</span>
-          <input type="checkbox" id="setShowSec">
-        </label>
-        <div class="field">
-          <span class="field-name">暮色主题视频</span>
-          <div class="setting-options wide" id="setBg" role="radiogroup" aria-label="暮色主题视频">
-            <button type="button" role="radio" data-value="play">播放</button>
-            <button type="button" role="radio" data-value="pause">冻结</button>
-          </div>
-        </div>
-        <label class="field">
-          <span class="field-name">界面缩放</span>
-          <input type="range" id="setScale" min="0.8" max="1.4" step="0.05">
-        </label>
-        <div class="field bridge-field">
-          <span class="field-name">Music Bridge</span>
-          <div class="bridge-control">
-            <span class="bridge-state checking" id="musicBridgeState"><i></i><span>检测中</span></span>
-            <button class="cookie-action" id="btnCheckMusicBridge" type="button">检测</button>
-            <a class="cookie-action bridge-manage" id="btnManageMusicBridge"
-               href="http://127.0.0.1:16311/manage" target="_blank" rel="noopener noreferrer">管理</a>
-          </div>
-        </div>
-        <div class="field cookie-field">
-          <label class="field-name" for="setMusicCookie">网易云 Cookie</label>
-          <div class="cookie-control">
-            <input type="text" id="setMusicCookie" placeholder="MUSIC_U 的值；可留空" spellcheck="false">
-            <button class="cookie-action" id="btnPasteMusicCookie" type="button" title="从剪贴板粘贴 Cookie">粘贴</button>
-            <button class="cookie-action" id="btnTestMusicCookie" type="button" title="验证 Cookie 是否有效">验证</button>
-            <button class="cookie-action" id="btnClearMusicCookie" type="button" title="清空 Cookie">清空</button>
-          </div>
-        </div>
-        <div class="field">
-          <span class="field-name">数据</span>
-          <button class="mini-btn" id="btnReset">恢复默认设置</button>
-        </div>
-        <p class="media-note" id="mediaStatus"></p>
-        <div class="field">
-          <span class="field-name">项目</span>
-          <a class="github-btn" id="btnOpenProject"
-             href="https://github.com/CHRcr/wallpaper11"
-             target="_blank" rel="noopener noreferrer"
-             aria-label="在 GitHub 打开 CHRcr/wallpaper11">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="currentColor" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.093.682-.217.682-.483 0-.237-.009-.866-.014-1.7-2.782.605-3.369-1.343-3.369-1.343-.455-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.071 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.091-.647.349-1.088.635-1.338-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.56 9.56 0 0 1 12 6.836a9.55 9.55 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.337 4.695-4.566 4.943.359.31.678.921.678 1.856 0 1.34-.012 2.421-.012 2.75 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/>
-            </svg>
-            <span>GitHub</span>
-            <small>CHRcr/wallpaper11</small>
-          </a>
+          </section>
+
+          <section class="settings-page" data-settings-panel="music" aria-label="音乐设置" hidden>
+            <div class="settings-page-head"><span>音乐</span><small>键盘不可用时直接从剪贴板粘贴</small></div>
+            <div class="settings-grid music-settings-grid">
+              <div class="field field-card bridge-field">
+                <span class="field-name">Music Bridge</span>
+                <div class="bridge-control">
+                  <span class="bridge-state checking" id="musicBridgeState"><i></i><span>检测中</span></span>
+                  <button class="cookie-action" id="btnCheckMusicBridge" type="button">检测</button>
+                  <a class="cookie-action bridge-manage" id="btnManageMusicBridge"
+                     href="http://127.0.0.1:16311/manage" target="_blank" rel="noopener noreferrer">管理</a>
+                </div>
+              </div>
+              <div class="field field-block field-card cookie-field settings-span-2">
+                <label class="field-name" for="setMusicCookie">网易云 Cookie</label>
+                <div class="cookie-control">
+                  <input type="text" id="setMusicCookie" placeholder="MUSIC_U 的值；可留空"
+                         spellcheck="false" inputmode="none" readonly>
+                  <button class="cookie-action" id="btnPasteMusicCookie" type="button" title="从剪贴板粘贴 Cookie">粘贴</button>
+                  <button class="cookie-action" id="btnTestMusicCookie" type="button" title="验证 Cookie 是否有效">验证</button>
+                  <button class="cookie-action" id="btnClearMusicCookie" type="button" title="清空 Cookie">清空</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-page" data-settings-panel="about" aria-label="关于与数据" hidden>
+            <div class="settings-page-head"><span>关于</span><small>wallpaper11 · 希沃桌面适配</small></div>
+            <div class="settings-grid about-settings-grid">
+              <div class="settings-note settings-span-2">
+                桌面壁纸默认只接收鼠标与触屏。所有核心设置均可点击完成；中文标题、Cookie 和歌曲搜索可使用“粘贴”按钮。
+              </div>
+              <div class="field field-card">
+                <span class="field-name">数据</span>
+                <button class="mini-btn" id="btnReset">恢复默认设置</button>
+              </div>
+              <div class="field field-card project-field">
+                <span class="field-name">项目</span>
+                <a class="github-btn" id="btnOpenProject"
+                   href="https://github.com/CHRcr/wallpaper11"
+                   target="_blank" rel="noopener noreferrer"
+                   aria-label="在 GitHub 打开 CHRcr/wallpaper11">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.093.682-.217.682-.483 0-.237-.009-.866-.014-1.7-2.782.605-3.369-1.343-3.369-1.343-.455-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.071 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.091-.647.349-1.088.635-1.338-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.56 9.56 0 0 1 12 6.836a9.55 9.55 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.337 4.695-4.566 4.943.359.31.678.921.678 1.856 0 1.34-.012 2.421-.012 2.75 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/>
+                  </svg>
+                  <span>GitHub</span>
+                  <small>CHRcr/wallpaper11</small>
+                </a>
+              </div>
+              <p class="media-note settings-span-2" id="mediaStatus"></p>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -306,7 +373,7 @@
               <button class="mp-list-btn" id="mpListClear">清空</button>
             </span>
           </div>
-          <ol class="mp-list-ol" id="mpListOl" data-scroll-surface tabindex="0" aria-label="播放列表"></ol>
+          <ol class="mp-list-ol" id="mpListOl" aria-label="播放列表"></ol>
         </aside>
       </div>
 
@@ -315,9 +382,17 @@
           <button class="mp-search-back" id="mpSearchBack" title="返回">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
-          <input id="mpSearchInput" type="text" placeholder="搜索网易云音乐" autocomplete="off" spellcheck="false">
+          <input id="mpSearchInput" type="text" placeholder="复制关键词后点击右侧按钮"
+                 autocomplete="off" spellcheck="false" inputmode="none" readonly>
+          <button class="mp-search-paste" id="mpSearchPaste" type="button">粘贴搜索</button>
         </div>
-        <div class="mp-results" id="mpResults" data-scroll-surface tabindex="0" role="region" aria-label="搜索结果"></div>
+        <div class="mp-results-shell">
+          <div class="mp-results" id="mpResults" role="region" aria-label="搜索结果"></div>
+          <div class="mp-page-rail" aria-label="搜索结果翻页">
+            <button type="button" id="mpResultsPageUp" aria-label="搜索结果向上翻页">▲</button>
+            <button type="button" id="mpResultsPageDown" aria-label="搜索结果向下翻页">▼</button>
+          </div>
+        </div>
       </div>
     </section>
   </div>

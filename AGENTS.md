@@ -33,7 +33,7 @@
 - **主题：** 暮色暖金。令牌在 `app/css/style.css :root`，包括 `--gold: #ffcf9c`、`--rose: #f2a7b3`、烟熏紫玻璃和暖白文字。
 - **字体：** 数字使用 Bahnschrift 半压缩字体；中文使用 Segoe UI/微软雅黑兜底。
 - **播放器形态：** 右上角紧凑毛玻璃卡片，歌词、歌单和搜索只在卡片内部展开。
-- **持久化：** Lively 属性是跨重载的首选设置来源；网页内设置与播放器状态仍使用 localStorage；作业拖图使用 IndexedDB，长期固定作业图优先通过 Lively 的 `homeworkImage` 属性选择。
+- **持久化：** 壁纸内设置与播放器状态使用 localStorage，存在本机保存值时忽略启动阶段 Lively 对默认属性的重放，避免覆盖壁纸内修改；运行期间从 Lively 自定义面板产生的新值仍同步写入 localStorage。作业图片通过点击文件选择器写入 IndexedDB，长期固定作业图也可通过 Lively 的 `homeworkImage` 属性选择。
 - **更新：** GitHub 项目入口保留，更新 Lively 壁纸包时不得提交或删除本机媒体源目录。
 - **一体化安装包：** `npm run setup` 产出 `dist/wallpaper11-setup.exe`（Inno Setup，内嵌 Lively 安装器 + `wallpaper11-lively.zip` + `bridge-payload.zip`）。`tools/netease-api/` 的 `build-installer.ps1` 与 setup 共用 `tools/setup/bridge-payload.ps1`；旧的 `wallpaper11-music-setup.exe` 保留为备用。
 - **安装器机制：** setup 靠 `%LOCALAPPDATA%\Lively Wallpaper\Library\wallpapers\wallpaper11\`（Lively v2 `setwp --file` 只接受库内目录）+ `setwp` 命令行应用壁纸；Lively 检测靠注册表 AppId `{E3E43E1B-DEC8-44BF-84A6-243DBA3F2CB1}_is1`。
@@ -43,7 +43,7 @@
 ## 三、当前状态
 
 - `app/` 是完整的单窗口网页壁纸。
-- 时钟、年度进度、倒计时、示例单词卡、作业板、设置和右上角音乐播放器均已保留。
+- 时钟、年度进度、倒计时、双词卡、作业板、横向分页设置和右上角音乐播放器均已保留；沉静主题已针对 1920×1080、150% 缩放重新避让。
 - 高考词表由 3423 条源记录人工校订并归并为 3399 个稳定 lexical entry；`W11_WORD_DATA` 内嵌于 `app/js/word-data.js`，可直接在 `file://` 下加载。
 - `window.livelyPropertyListener(name, value)` 已映射背景、时钟、倒计时、切词间隔、缩放、作业图和网易云配置。
 - `window.livelyWallpaperPlaybackChanged(data)` 已映射 Lively 暂停状态。
@@ -51,15 +51,15 @@
 - `tools/package-lively.ps1` 输出 `dist/wallpaper11-lively.zip`，Lively 元数据位于 zip 根目录。
 - GitHub Actions 只做 Lively 项目静态检查，不构建 EXE，也不发布 Release。
 - 网易云使用自包含的本机 Music Bridge，只开放壁纸需要的接口并监听 `127.0.0.1:16311`；`npm run music:package` 生成无需 Node/npm 的单文件安装包，安装到当前用户目录并静默登录自启。
-- 壁纸设置页负责 Music Bridge 状态、Cookie 验证和本机管理入口；由于浏览器沙箱限制，首次安装仍由用户双击安装包确认。
+- 壁纸设置页负责 Music Bridge 状态、Cookie 验证和本机管理入口；核心交互只依赖点击与剪贴板粘贴，不依赖滚轮、拖放或键盘转发。由于浏览器沙箱限制，首次安装仍由用户双击安装包确认。
+- 一体化安装器在进度条下显示 PowerShell 子步骤的实时日志。
 - `.github/workflows/setup-build.yml` 在 tag `v*` 或手动触发时构建 `wallpaper11-setup.exe` 并发布 Release；卸载入口只删壁纸库目录与 Bridge，不卸载 Lively。
 
 ## 四、待办
 
-1. 在 Lively/Windows 11/希沃实机验证触屏、桌面输入、WebView2 MP4、IndexedDB 和“其他应用获得焦点时暂停”。
-3. 根据实机结果调整 Lively 的鼠标/键盘输入说明；默认只要求鼠标输入，文本输入需要用户开启壁纸键盘输入或从 Lively 自定义面板填写。
-4. 在希沃实机验证 Music Bridge 的安装、登录自启、MUSIC_U 和网络异常提示；不要重新引入桌面嵌入宿主。
-5. 在希沃实机验证 `wallpaper11-setup.exe`：Lively 首次静默安装、壁纸导入与 setwp、卸载不动 Lively 与其他壁纸；确认非管理员账户也能完成。
+1. 在 Lively/Windows 11/希沃实机复验触屏、点击翻页、双词卡、WebView2 MP4、IndexedDB 和“其他应用获得焦点时暂停”。
+2. 在希沃实机验证 Music Bridge 的安装、登录自启、MUSIC_U 粘贴和网络异常提示；不要重新引入桌面嵌入宿主。
+3. 在希沃实机验证 `wallpaper11-setup.exe` 的可见日志、Lively 首次静默安装、壁纸导入与 setwp、卸载不动 Lively 与其他壁纸；确认非管理员账户也能完成。
 
 ## 五、协作约定
 
@@ -74,7 +74,7 @@
 - `[hidden]` 可能被 `display:grid/flex` 覆盖，CSS 中的 `[hidden]{display:none!important}` 不能删除。
 - `file://` 下相对 `fetch()` 受限；本机歌单使用普通 `<script>` 加载生成的 `media/media-library.js`。
 - Lively `folderDropdown` 只扫描入口 HTML 下的指定目录，不递归；音乐子目录由项目脚本扫描。
-- Lively 属性是单向通知，壁纸内修改不会反写 `LivelyProperties.json`；重新加载时以 Lively 保存的属性为准。
-- Lively 默认启用鼠标输入；输入文字需要在 Lively 中开启壁纸键盘输入，或直接使用 Lively 自定义面板。
+- Lively 属性是单向通知，壁纸内修改不会反写 `LivelyProperties.json`；本机 localStorage 是壁纸内设置的恢复来源，不能让启动时的 Lively 默认值覆盖它。
+- Lively 的鼠标键盘转发模式会隐藏桌面图标，因此不要把核心操作建立在键盘或中文输入法上；文本使用点击式剪贴板入口，复杂配置保留 Lively 自定义面板作为后备。
 - 网易云官方 API 没有 CORS，必须走本地 Music Bridge；不要在浏览器里手动设置 Cookie 请求头。
 - PowerShell 5.1 对无 BOM UTF-8 脚本兼容较差；`package-lively.ps1` 保持 ASCII 内容。

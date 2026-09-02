@@ -26,7 +26,12 @@ for (const file of required) {
 const info = JSON.parse(fs.readFileSync(path.join(APP, 'LivelyInfo.json'), 'utf8'));
 const properties = JSON.parse(fs.readFileSync(path.join(APP, 'LivelyProperties.json'), 'utf8'));
 const livelyInstaller = fs.readFileSync(path.join(ROOT, 'tools', 'setup', 'lively-install.ps1'), 'utf8');
+const setupInstaller = fs.readFileSync(path.join(ROOT, 'tools', 'setup', 'setup.iss'), 'utf8');
 const wordImporter = fs.readFileSync(path.join(ROOT, 'tools', 'build-gaokao-words.ps1'), 'utf8');
+const html = fs.readFileSync(path.join(APP, 'index.html'), 'utf8');
+const mainSource = fs.readFileSync(path.join(APP, 'js', 'main.js'), 'utf8');
+const playerSource = fs.readFileSync(path.join(APP, 'js', 'player.js'), 'utf8');
+const bridgeSource = fs.readFileSync(path.join(ROOT, 'tools', 'netease-api', 'server.js'), 'utf8');
 if (info.Type !== 1 || info.FileName !== 'index.html') {
   throw new Error('LivelyInfo.json must describe a web wallpaper using index.html');
 }
@@ -49,6 +54,29 @@ for (const guard of ['wantedExact', 'spellingsByFolded', 'dictionaryExact']) {
   }
 }
 
+if ((html.match(/data-word-slot=/g) || []).length !== 2
+  || !html.includes('class="settings-layout"')
+  || !html.includes('id="settingsNav"')) {
+  throw new Error('The Seewo layout must provide two word slots and horizontal settings navigation');
+}
+if (html.includes('data-scroll-surface')
+  || /addEventListener\(\s*['"]wheel['"]/.test(mainSource + playerSource)
+  || /addEventListener\(\s*['"](?:dragover|dragleave|drop)['"]/.test(mainSource + playerSource)
+  || mainSource.includes('dataTransfer')) {
+  throw new Error('Wallpaper interactions must not depend on wheel scrolling or drag-and-drop');
+}
+for (const control of ['mpResultsPageUp', 'mpResultsPageDown', 'mpListPageUp', 'mpListPageDown']) {
+  if (!html.includes(`id="${control}"`)) {
+    throw new Error(`Missing click-based paging control: ${control}`);
+  }
+}
+if (!setupInstaller.includes('ExecAndLogOutput') || !setupInstaller.includes('InstallLogMemo')) {
+  throw new Error('Unified installer must show subprocess output below its progress bar');
+}
+if (!mainSource.includes("'/clipboard/read'") || !bridgeSource.includes("'/clipboard/read'")) {
+  throw new Error('Click-to-paste must retain its Windows clipboard bridge fallback');
+}
+
 const generated = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'build-word-runtime.js'), '--check'], {
   encoding: 'utf8',
 });
@@ -64,6 +92,7 @@ for (const file of [
   '../tools/dev-server.js',
   '../tools/prepare-lively-media.js',
   '../tools/build-word-runtime.js',
+  '../tools/netease-api/server.js',
   '../data/words/curation.js',
 ]) {
   const result = spawnSync(process.execPath, ['--check', path.resolve(APP, file)], { stdio: 'inherit' });

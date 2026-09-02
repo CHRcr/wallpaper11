@@ -20,18 +20,37 @@ const DEFAULTS = {
 };
 
 const SETTINGS_KEY = 'w11-settings';
+let hasPersistedSettings = false;
 function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
+    hasPersistedSettings = Boolean(raw);
     return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
-  } catch { return { ...DEFAULTS }; }
+  } catch {
+    hasPersistedSettings = false;
+    return { ...DEFAULTS };
+  }
 }
 
 let settings = loadSettings();
-let livelyThemeOverride = null;
+const hadPersistedSettingsAtBoot = hasPersistedSettings;
+// Leave ample room for startup callbacks on slower classroom hardware.
+const livelyRestoreDeadline = performance.now() + 10000;
 
 function saveSettings() {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* 忽略 */ }
+  try {
+    const serialized = JSON.stringify(settings);
+    localStorage.setItem(SETTINGS_KEY, serialized);
+    hasPersistedSettings = localStorage.getItem(SETTINGS_KEY) === serialized;
+  } catch {
+    hasPersistedSettings = false;
+  }
+  const state = document.getElementById('settingsSaveState');
+  if (state) {
+    state.textContent = hasPersistedSettings ? '已保存到本机' : '保存失败';
+    state.classList.toggle('error', !hasPersistedSettings);
+  }
+  return hasPersistedSettings;
 }
 
 const $ = (id) => document.getElementById(id);
@@ -70,23 +89,6 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2200);
 }
-
-/* ---------- 可滚动面板：约束滚轮和触屏手势 ---------- */
-
-function setupContainedScroll(element) {
-  if (!element) return;
-  element.addEventListener('wheel', (event) => {
-    if (event.ctrlKey || element.scrollHeight <= element.clientHeight + 1) return;
-    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-    const unit = event.deltaMode === 1 ? 20
-      : event.deltaMode === 2 ? element.clientHeight : 1;
-    element.scrollTop += event.deltaY * unit;
-    event.preventDefault();
-    event.stopPropagation();
-  }, { passive: false });
-}
-
-document.querySelectorAll('[data-scroll-surface]').forEach(setupContainedScroll);
 
 /* ---------- 时钟 + 日期 + 年度进度 ---------- */
 
@@ -221,20 +223,20 @@ function wordKey(value) {
 }
 
 function familyRowsForWord(word) {
-  return Array.isArray(word.family) ? word.family.slice(0, 4) : [];
+  return Array.isArray(word.family) ? word.family.slice(0, 2) : [];
 }
 
 function phrasesForWord(word) {
-  return Array.isArray(word.phrases) ? word.phrases.slice(0, 2) : [];
+  return Array.isArray(word.phrases) ? word.phrases.slice(0, 1) : [];
 }
 
 function confusionForWord(word) {
   return Array.isArray(word.confusions) ? word.confusions.join('；') : '';
 }
 
-function renderWordFamily(family) {
-  const list = $('wcDerivs');
-  const label = $('wcFamilyLabel');
+function renderWordFamily(slot, family) {
+  const list = slot.querySelector('.wc-derivs');
+  const label = slot.querySelector('.wc-family-label');
   list.replaceChildren();
   list.hidden = family.length === 0;
   label.hidden = family.length === 0;
@@ -253,8 +255,8 @@ function renderWordFamily(family) {
   }
 }
 
-function renderWordPhrases(phrases) {
-  const list = $('wcPhrases');
+function renderWordPhrases(slot, phrases) {
+  const list = slot.querySelector('.wc-phrases');
   list.replaceChildren();
   list.hidden = phrases.length === 0;
   for (const phrase of phrases) {
@@ -264,8 +266,8 @@ function renderWordPhrases(phrases) {
   }
 }
 
-function renderWordConfusion(confusion) {
-  const note = $('wcConfusion');
+function renderWordConfusion(slot, confusion) {
+  const note = slot.querySelector('.wc-confusion');
   note.hidden = !confusion;
   note.textContent = confusion;
 }
@@ -283,9 +285,14 @@ function studyWeight(word) {
   return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
-function chooseStudyWordIndex() {
-  const fresh = WORD_INDICES.filter((index) => !recentStudyGroups.includes(studyGroupKey(WORDS[index])));
-  const choices = fresh.length ? fresh : WORD_INDICES;
+function chooseStudyWordIndex(extraBlocked = new Set()) {
+  const isAvailable = (index, includeRecent) => {
+    const key = studyGroupKey(WORDS[index]);
+    return !extraBlocked.has(key) && (includeRecent || !recentStudyGroups.includes(key));
+  };
+  const fresh = WORD_INDICES.filter((index) => isAvailable(index, false));
+  const withoutPairDuplicate = WORD_INDICES.filter((index) => isAvailable(index, true));
+  const choices = fresh.length ? fresh : withoutPairDuplicate.length ? withoutPairDuplicate : WORD_INDICES;
   const total = choices.reduce((sum, index) => sum + studyWeight(WORDS[index]), 0);
   let roll = Math.random() * total;
   for (const index of choices) {
@@ -304,33 +311,49 @@ function rememberStudyGroup(word) {
 }
 
 const successIndex = WORDS.findIndex((word) => wordKey(word.word) === 'success');
-let wordIndex = successIndex >= 0 ? successIndex : 0;
+const initialWordIndex = successIndex >= 0 ? successIndex : 0;
+const initialBlocked = new Set([studyGroupKey(WORDS[initialWordIndex])]);
+let wordIndices = [initialWordIndex, chooseStudyWordIndex(initialBlocked)];
 let wordTimer = null;
 let wordTransitionTimer = null;
 const wcInner = $('wcInner');
+const wordSlots = [...document.querySelectorAll('[data-word-slot]')];
 
-function renderWord(i) {
+function renderWord(slot, i) {
   const w = WORDS[i];
-  $('wcWord').textContent = w.word;
-  $('wcPos').textContent = Array.isArray(w.meanings) ? w.meanings.join('；') : '';
-  renderWordFamily(familyRowsForWord(w));
-  renderWordPhrases(phrasesForWord(w));
-  renderWordConfusion(confusionForWord(w));
+  slot.querySelector('.wc-word').textContent = w.word;
+  slot.querySelector('.wc-pos').textContent = Array.isArray(w.meanings) ? w.meanings.join('；') : '';
+  renderWordFamily(slot, familyRowsForWord(w));
+  renderWordPhrases(slot, phrasesForWord(w));
+  renderWordConfusion(slot, confusionForWord(w));
   rememberStudyGroup(w);
-  $('wcCount').textContent = `高考词表 · ${i + 1} / ${WORDS.length}`;
+  slot.querySelector('.wc-count').textContent = `${i + 1} / ${WORDS.length}`;
+}
+
+function renderWordPair(indices) {
+  wordSlots.forEach((slot, index) => renderWord(slot, indices[index]));
+}
+
+function chooseStudyWordPair() {
+  const blocked = new Set();
+  return wordSlots.map(() => {
+    const index = chooseStudyWordIndex(blocked);
+    blocked.add(studyGroupKey(WORDS[index]));
+    return index;
+  });
 }
 
 function nextWord(immediate = false) {
   if (!powerRunning && !immediate) return;
-  const i = chooseStudyWordIndex();
-  wordIndex = i;
+  const indices = chooseStudyWordPair();
+  wordIndices = indices;
 
-  if (immediate) { renderWord(i); return; }
+  if (immediate) { renderWordPair(indices); return; }
   clearTimeout(wordTransitionTimer);
   wcInner.classList.add('fade');
   wordTransitionTimer = setTimeout(() => {
     wordTransitionTimer = null;
-    renderWord(i);
+    renderWordPair(indices);
     wcInner.classList.remove('fade');
   }, 460);
 }
@@ -464,7 +487,6 @@ function openHomework() {
 function closeHomework() {
   if (homeworkMask.hidden) return;
   homeworkMask.hidden = true;
-  hwBody.classList.remove('dragover');
   document.body.classList.remove('hw-open');
   applyBgMode();                      // 按设置恢复视频
 }
@@ -501,20 +523,6 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!homeworkMask.hidden) closeHomework();
   if (!settingsMask.hidden) closeSettings();
-});
-
-// 只在作业板内部接管文件拖拽，避免和 Windows 桌面拖放冲突。
-hwBody.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  hwBody.classList.add('dragover');
-});
-hwBody.addEventListener('dragleave', () => hwBody.classList.remove('dragover'));
-hwBody.addEventListener('drop', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  hwBody.classList.remove('dragover');
-  saveHomeworkFile(e.dataTransfer.files && e.dataTransfer.files[0]);
 });
 
 // 点击 hwBody 空白处 = 选图
@@ -559,6 +567,29 @@ function cookieParam() {
 /* ---------- 工具栏 & 设置面板 ---------- */
 
 const settingsMask = $('settingsMask');
+let activeSettingsPage = 'appearance';
+
+function showSettingsPage(name) {
+  const available = [...document.querySelectorAll('[data-settings-panel]')]
+    .some((panel) => panel.dataset.settingsPanel === name);
+  activeSettingsPage = available ? name : 'appearance';
+  document.querySelectorAll('[data-settings-page]').forEach((button) => {
+    const selected = button.dataset.settingsPage === activeSettingsPage;
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-current', selected ? 'page' : 'false');
+  });
+  document.querySelectorAll('[data-settings-panel]').forEach((panel) => {
+    const selected = panel.dataset.settingsPanel === activeSettingsPage;
+    panel.hidden = !selected;
+    panel.classList.toggle('selected', selected);
+  });
+  if (activeSettingsPage !== 'study') closeCalendar();
+}
+
+$('settingsNav').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-settings-page]');
+  if (button) showSettingsPage(button.dataset.settingsPage);
+});
 
 function syncChoiceGroup(id, value) {
   const group = $(id);
@@ -655,6 +686,28 @@ function syncExamDateControl() {
   $('setExamDateText').textContent = formatDisplayDate(settings.examDate);
 }
 
+function titleForMode(mode) {
+  const year = parseIsoDate(settings.examDate).getFullYear();
+  if (mode === 'year') return `距 ${year} 高考`;
+  if (mode === 'short') return '距高考';
+  return '高考倒计时';
+}
+
+function syncExamTitleControl() {
+  const choices = $('setExamTitleChoices');
+  choices.querySelector('[data-title-mode="year"]').textContent = titleForMode('year');
+  choices.querySelectorAll('button[data-title-mode]').forEach((button) => {
+    button.classList.toggle('selected', settings.examTitle === titleForMode(button.dataset.titleMode));
+  });
+  $('setExamTitleText').textContent = settings.examTitle;
+}
+
+function syncScaleControl() {
+  $('setScaleValue').textContent = `${Math.round(settings.scale * 100)}%`;
+  $('setScaleDown').disabled = settings.scale <= 0.8;
+  $('setScaleUp').disabled = settings.scale >= 1.4;
+}
+
 function openCalendar() {
   const selected = parseIsoDate(settings.examDate);
   calendarCursor = new Date(selected.getFullYear(), selected.getMonth(), 1);
@@ -679,15 +732,16 @@ function openSettings() {
   if (wasHidden) closeOtherPanels(settingsMask);
   syncChoiceGroup('setTheme', normalizeTheme(settings.theme));
   syncExamDateControl();
-  $('setExamTitle').value = settings.examTitle;
-  $('setWordInterval').value = settings.wordInterval;
+  syncExamTitleControl();
+  syncChoiceGroup('setWordInterval', settings.wordInterval);
   syncChoiceGroup('setHour12', settings.hour12 ? '1' : '0');
   $('setShowSec').checked = settings.showSec;
   syncChoiceGroup('setBg', settings.bgMode);
-  $('setScale').value = settings.scale;
+  syncScaleControl();
   $('setMusicCookie').value = settings.musicCookie;
   $('btnManageMusicBridge').href = apiBase() + '/manage';
   closeCalendar();
+  showSettingsPage(activeSettingsPage);
   settingsMask.hidden = false;
   if (wasHidden) refreshMusicBridgeStatus();
 }
@@ -708,6 +762,7 @@ settingsMask.addEventListener('click', (e) => { if (e.target === settingsMask) c
 // 点倒计时胶囊 = 直接打开设置改日期
 $('countdown').addEventListener('click', () => {
   openSettings();
+  showSettingsPage('study');
   openCalendar();
   $('setExamDate').focus();
 });
@@ -728,9 +783,12 @@ $('calendarDays').addEventListener('click', (event) => {
   if (!button) return;
   event.preventDefault();
   event.stopPropagation();
+  const followedExamYear = settings.examTitle === titleForMode('year');
   settings.examDate = button.dataset.date;
+  if (followedExamYear) settings.examTitle = titleForMode('year');
   saveSettings();
   syncExamDateControl();
+  syncExamTitleControl();
   updateCountdown();
   closeCalendar();
 });
@@ -738,12 +796,16 @@ $('calPrevYear').addEventListener('click', () => moveCalendar(-1, 0));
 $('calPrevMonth').addEventListener('click', () => moveCalendar(0, -1));
 $('calNextMonth').addEventListener('click', () => moveCalendar(0, 1));
 $('calNextYear').addEventListener('click', () => moveCalendar(1, 0));
-$('setExamTitle').addEventListener('input', (e) => {
-  settings.examTitle = e.target.value.trim() || DEFAULTS.examTitle;
-  saveSettings(); applySettings();
+$('setExamTitleChoices').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-title-mode]');
+  if (!button) return;
+  settings.examTitle = titleForMode(button.dataset.titleMode);
+  saveSettings();
+  syncExamTitleControl();
+  applySettings();
 });
-$('setWordInterval').addEventListener('change', (e) => {
-  settings.wordInterval = Number(e.target.value) || DEFAULTS.wordInterval;
+setupChoiceGroup('setWordInterval', (value) => {
+  settings.wordInterval = Number(value) || DEFAULTS.wordInterval;
   saveSettings(); restartWordTimer();
 });
 setupChoiceGroup('setHour12', (value) => {
@@ -758,9 +820,13 @@ setupChoiceGroup('setBg', (value) => {
   settings.bgMode = value;
   saveSettings(); applyBgMode();
 });
-$('setScale').addEventListener('input', (e) => {
-  settings.scale = Number(e.target.value);
-  saveSettings(); applySettings();
+$('setScaleDown').addEventListener('click', () => {
+  settings.scale = Math.max(0.8, Number((settings.scale - 0.05).toFixed(2)));
+  saveSettings(); syncScaleControl(); applySettings();
+});
+$('setScaleUp').addEventListener('click', () => {
+  settings.scale = Math.min(1.4, Number((settings.scale + 0.05).toFixed(2)));
+  saveSettings(); syncScaleControl(); applySettings();
 });
 $('setMusicCookie').addEventListener('input', (e) => {
   settings.musicCookie = e.target.value.trim();
@@ -774,37 +840,70 @@ function updateMusicCookiePlaceholder() {
     : 'MUSIC_U 的值；可留空';
 }
 
-async function readClipboardTextFromUserGesture(input) {
+async function readClipboardTextFromUserGesture(input = null) {
   if (window.clipboardData && typeof window.clipboardData.getData === 'function') {
     return { allowed: true, text: window.clipboardData.getData('Text') || '' };
   }
 
   // Older WebView builds may allow the legacy paste command even when the
   // asynchronous Clipboard API is unavailable in a file:// wallpaper.
-  const previous = input.value;
+  const previous = input ? input.value : '';
   let pastedText = '';
   const capturePaste = (event) => {
     if (event.clipboardData) pastedText = event.clipboardData.getData('text/plain') || '';
   };
-  input.addEventListener('paste', capturePaste, { once: true });
-  input.focus();
-  input.select();
-  try {
-    if (typeof document.execCommand === 'function' && document.execCommand('paste')) {
-      await Promise.resolve();
-      return { allowed: true, text: pastedText || (input.value !== previous ? input.value : '') };
-    }
-  } catch { /* Continue with the modern API. */ }
-  input.removeEventListener('paste', capturePaste);
-  if (input.value !== previous) return { allowed: true, text: input.value };
+  if (input) {
+    input.addEventListener('paste', capturePaste, { once: true });
+    input.focus();
+    input.select();
+    try {
+      if (typeof document.execCommand === 'function' && document.execCommand('paste')) {
+        await Promise.resolve();
+        return { allowed: true, text: pastedText || (input.value !== previous ? input.value : '') };
+      }
+    } catch { /* Continue with the modern API. */ }
+    input.removeEventListener('paste', capturePaste);
+    if (input.value !== previous) return { allowed: true, text: input.value };
+  }
 
   if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
     try {
       return { allowed: true, text: await navigator.clipboard.readText() };
     } catch { /* Lively/WebView may deny clipboard-read permission. */ }
   }
+
+  // The bundled localhost bridge can read the Windows clipboard when WebView2
+  // blocks clipboard access for a file:// wallpaper. Cookie fields use their
+  // dedicated bridge endpoint so the value is stored outside the page as well.
+  if (!input) {
+    try {
+      const response = await fetch(apiBase() + '/clipboard/read', {
+        method: 'POST', cache: 'no-store',
+      });
+      const body = await response.json();
+      if (response.ok && body.ok) return { allowed: true, text: body.text || '' };
+    } catch { /* The optional bridge may be offline. */ }
+  }
   return { allowed: false, text: '' };
 }
+
+$('btnPasteExamTitle').addEventListener('click', async () => {
+  const result = await readClipboardTextFromUserGesture();
+  const value = String(result.text || '').trim().slice(0, 12);
+  if (!result.allowed) {
+    toast('剪贴板不可用，请在 Lively 自定义面板填写标题');
+    return;
+  }
+  if (!value) {
+    toast('剪贴板是空的');
+    return;
+  }
+  settings.examTitle = value;
+  saveSettings();
+  syncExamTitleControl();
+  applySettings();
+  toast('标题已粘贴');
+});
 
 $('btnPasteMusicCookie').addEventListener('click', async () => {
   const input = $('setMusicCookie');
@@ -911,7 +1010,6 @@ $('btnManageMusicBridge').addEventListener('click', (event) => {
 });
 $('btnReset').addEventListener('click', () => {
   settings = { ...DEFAULTS };
-  livelyThemeOverride = null;
   saveSettings();
   applySettings(); applyBgMode(); restartWordTimer(); tick(); updateCountdown();
   openSettings();   // 刷新面板里的值
@@ -925,7 +1023,7 @@ function normalizeTheme(value) {
 }
 
 function activeTheme() {
-  return livelyThemeOverride || normalizeTheme(settings.theme);
+  return normalizeTheme(settings.theme);
 }
 
 function applySettings() {
@@ -986,12 +1084,25 @@ function refreshSettingsRuntime() {
   updateCountdown();
 }
 
-// Lively 持久属性回调。属性面板与壁纸内设置使用同一份运行时状态。
+const LIVELY_PERSISTENT_SETTINGS = new Set([
+  'theme', 'backgroundPlayback', 'interfaceScale', 'showSeconds', 'hour12',
+  'examDate', 'examTitle', 'wordInterval', 'musicApi', 'musicCookie',
+]);
+
+// Lively 会在网页启动后回放属性值。已有壁纸内设置时忽略这次启动回放，
+// 避免默认 LivelyProperties 值覆盖 localStorage；启动后的真实修改仍会同步并保存。
 window.livelyPropertyListener = function livelyPropertyListener(name, value) {
+  if (hadPersistedSettingsAtBoot
+      && performance.now() < livelyRestoreDeadline
+      && LIVELY_PERSISTENT_SETTINGS.has(name)) {
+    runtimeLog('ignored Lively startup restore for locally saved setting: ' + name);
+    return;
+  }
   switch (name) {
     case 'theme': {
-      const themeOverride = Number(value);
-      livelyThemeOverride = themeOverride === 0 ? null : normalizeTheme(themeOverride);
+      const selectedTheme = Number(value);
+      if (selectedTheme === 0) return;
+      settings.theme = normalizeTheme(selectedTheme);
       break;
     }
     case 'backgroundVideo': {
@@ -1022,7 +1133,6 @@ window.livelyPropertyListener = function livelyPropertyListener(name, value) {
     }
     case 'lively_default_settings_reload':
       settings = { ...DEFAULTS };
-      livelyThemeOverride = null;
       break;
     default: return;
   }
@@ -1136,7 +1246,8 @@ powerHandlers.push((run) => {
 /* ---------- 启动 ---------- */
 
 applySettings();
-renderWord(wordIndex);
+saveSettings();
+renderWordPair(wordIndices);
 restartWordTimer();
 restartClockTimer();
 updateCountdown();

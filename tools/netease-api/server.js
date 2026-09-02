@@ -184,6 +184,29 @@ async function handleCookieControl(req, res, url) {
   sendJson(res, 405, { code: 405, message: 'Method not allowed' })
 }
 
+async function handleClipboardControl(req, res) {
+  setCommonHeaders(res)
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204)
+    res.end()
+    return
+  }
+  if (!isWallpaperRequest(req)) {
+    sendJson(res, 403, { code: 403, message: 'Invalid wallpaper origin' })
+    return
+  }
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { code: 405, message: 'Method not allowed' })
+    return
+  }
+  try {
+    const text = String(await readWindowsClipboard()).slice(0, 4096)
+    sendJson(res, 200, { ok: true, text })
+  } catch {
+    sendJson(res, 500, { code: 500, message: '无法读取 Windows 剪贴板' })
+  }
+}
+
 function responseStatus(value) {
   const status = Number(value)
   return Number.isInteger(status) && status >= 100 && status <= 599 ? status : 200
@@ -307,6 +330,11 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/cookie/status' || url.pathname === '/cookie/paste' ||
       url.pathname === '/cookie/clear') {
     await handleCookieControl(req, res, url)
+    return
+  }
+
+  if (url.pathname === '/clipboard/read') {
+    await handleClipboardControl(req, res)
     return
   }
 

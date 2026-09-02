@@ -123,6 +123,9 @@ const mpListClear  = $('mpListClear');
 const mpListRestore = $('mpListRestore');
 const mpListPageUp = $('mpListPageUp');
 const mpListPageDown = $('mpListPageDown');
+const mpSearchPaste = $('mpSearchPaste');
+const mpResultsPageUp = $('mpResultsPageUp');
+const mpResultsPageDown = $('mpResultsPageDown');
 const mpBar        = $('mpBar');
 const mpBuf        = $('mpBuf');
 const mpPlayed     = $('mpPlayed');
@@ -590,33 +593,57 @@ document.addEventListener('keydown', (e) => {
 
 /* ---------- 网易云搜索（经本地 Music Bridge） ---------- */
 
-let searchTimer = null;
 let lastResults = [];
 
 function toggleMusicSearch(open) {
   const target = open !== undefined ? open : mpSearch.hidden;
   mpSearch.hidden = !target;
   musicPanel.classList.toggle('search-open', target);
-  if (target) mpInput.focus();
-  else { mpInput.value = ''; mpResults.innerHTML = ''; lastResults = []; }
+  if (!target) {
+    mpInput.value = '';
+    mpResults.innerHTML = '';
+    lastResults = [];
+    updateResultsPageButtons();
+  }
 }
 
 $('musicSearchBtn').addEventListener('click', () => toggleMusicSearch());
 $('mpSearchBack').addEventListener('click', () => toggleMusicSearch(false));
+mpSearchPaste.addEventListener('click', async () => {
+  const result = await readClipboardTextFromUserGesture();
+  const keyword = String(result.text || '').trim();
+  if (!result.allowed) {
+    toast('剪贴板不可用，请确认 Music Bridge 已连接');
+    return;
+  }
+  if (!keyword) {
+    toast('剪贴板是空的');
+    return;
+  }
+  mpInput.value = keyword;
+  searchNetease(keyword);
+});
 
-mpInput.addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  const kw = mpInput.value.trim();
-  if (!kw) { mpResults.innerHTML = ''; lastResults = []; return; }
-  searchTimer = setTimeout(() => searchNetease(kw), 450);
-});
-mpInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { clearTimeout(searchTimer); searchNetease(mpInput.value.trim()); }
-});
+function updateResultsPageButtons() {
+  const max = Math.max(0, mpResults.scrollHeight - mpResults.clientHeight);
+  mpResultsPageUp.disabled = mpResults.scrollTop <= 1;
+  mpResultsPageDown.disabled = max <= 1 || mpResults.scrollTop >= max - 1;
+}
+
+function scrollResultsPage(direction) {
+  const distance = Math.max(160, Math.round(mpResults.clientHeight * 0.78));
+  mpResults.scrollBy({ top: direction * distance, behavior: 'smooth' });
+}
+
+mpResultsPageUp.addEventListener('click', () => scrollResultsPage(-1));
+mpResultsPageDown.addEventListener('click', () => scrollResultsPage(1));
+mpResults.addEventListener('scroll', updateResultsPageButtons, { passive: true });
 
 async function searchNetease(kw) {
   if (!kw) return;
+  mpResults.scrollTop = 0;
   mpResults.innerHTML = '<div class="mp-tip">搜索中…</div>';
+  updateResultsPageButtons();
   try {
     const r = await fetch(apiBase() + '/cloudsearch?keywords=' +
       encodeURIComponent(kw) + '&limit=20' + cookieParam());
@@ -624,6 +651,7 @@ async function searchNetease(kw) {
     lastResults = (j.result && j.result.songs) || [];
     if (!lastResults.length) {
       mpResults.innerHTML = '<div class="mp-tip">没有找到</div>';
+      updateResultsPageButtons();
       return;
     }
     mpResults.innerHTML = lastResults.map((s, i) => {
@@ -636,8 +664,10 @@ async function searchNetease(kw) {
         '<div class="r-artist">' + escapeHtml((s.ar || []).map(a => a.name).join(' / ')) + '</div>' +
         '</div></div>';
     }).join('');
+    requestAnimationFrame(updateResultsPageButtons);
   } catch {
     mpResults.innerHTML = '<div class="mp-tip">Music Bridge 未运行<br>请先完成网易云组件安装</div>';
+    updateResultsPageButtons();
   }
 }
 
