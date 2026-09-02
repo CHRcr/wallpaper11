@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, '..');
 const SOURCE_DIR = path.join(ROOT, 'data', 'words');
 const OUTPUT = path.join(ROOT, 'app', 'js', 'word-data.js');
 const CHECK_ONLY = process.argv.includes('--check');
+const DIFFICULTY_BONUS = Object.freeze({ core: 0, advanced: 2, challenge: 4 });
 
 function loadSources() {
   const context = { window: {} };
@@ -77,6 +78,24 @@ function compileRuntime() {
     const merged = mergedByExactWord.get(word);
     merged.meanings.push(record.pos);
     merged.forms.push(...record.forms);
+  }
+
+  const curatedEntries = Array.isArray(curation.newEntries) ? curation.newEntries : [];
+  for (const entry of curatedEntries) {
+    const word = String(entry && entry.word || '').trim();
+    const meanings = entry && entry.meanings;
+    if (!word || !Array.isArray(meanings) || !meanings.length
+      || meanings.some((meaning) => !String(meaning || '').trim())) {
+      throw new Error(`Invalid curated vocabulary entry: ${word || '<empty>'}`);
+    }
+    if (mergedByExactWord.has(word)) {
+      throw new Error(`Curated vocabulary entry duplicates the base source: ${word}`);
+    }
+    mergedByExactWord.set(word, {
+      word,
+      meanings,
+      forms: Array.isArray(entry.forms) ? entry.forms : [],
+    });
   }
 
   for (const word of Object.keys(curation.entryOverrides)) {
@@ -156,6 +175,32 @@ function compileRuntime() {
     (confusion) => uniqueStrings([confusion]),
   );
 
+  const difficultyAssignments = curation.difficultyAssignments || {};
+  const advancedKeys = new Set();
+  const challengeKeys = new Set();
+  for (const [tier, target] of [['advanced', advancedKeys], ['challenge', challengeKeys]]) {
+    const assignedWords = difficultyAssignments[tier];
+    if (!Array.isArray(assignedWords)) throw new Error(`Missing curated difficulty tier: ${tier}`);
+    for (const word of assignedWords) {
+      const key = relationKey(word);
+      if (!entriesByRelationKey.has(key)) {
+        throw new Error(`Difficulty assignment is not a drawable lexical entry: ${tier} -> ${word}`);
+      }
+      if (target.has(key)) throw new Error(`Duplicate difficulty assignment: ${tier} -> ${word}`);
+      target.add(key);
+    }
+  }
+  for (const key of challengeKeys) {
+    if (!advancedKeys.has(key)) {
+      throw new Error(`Challenge entry must also appear in the advanced list: ${entriesByRelationKey.get(key).word}`);
+    }
+  }
+  for (const entry of curatedEntries) {
+    if (!advancedKeys.has(relationKey(entry.word))) {
+      throw new Error(`Curated vocabulary addition is missing an advanced difficulty assignment: ${entry.word}`);
+    }
+  }
+
   const familyGroups = new Map();
   for (const [root, family] of Object.entries(sourceFamilies)) {
     familyGroups.set(relationKey(root), {
@@ -220,7 +265,10 @@ function compileRuntime() {
 
     const phrases = phraseAssignments.get(key) || sourcePhraseAssignments.get(key) || [];
     const confusions = sourceConfusionAssignments.get(key) || [];
+    const difficulty = challengeKeys.has(key) ? 'challenge'
+      : advancedKeys.has(key) ? 'advanced' : 'core';
     const weight = Number((1
+      + DIFFICULTY_BONUS[difficulty]
       + (family.length ? 0.3 : 0)
       + (phrases.length ? 0.2 : 0)
       + (confusions.length ? 0.2 : 0)).toFixed(1));
@@ -230,6 +278,7 @@ function compileRuntime() {
       family,
       phrases,
       confusions,
+      difficulty,
       studyGroupId: group ? `family:${relationKey(group.root)}` : `entry:${entry.id}`,
       weight,
     };
@@ -244,11 +293,19 @@ function compileRuntime() {
     }
   }
 
+  const difficultyCounts = runtimeWords.reduce((counts, entry) => {
+    counts[entry.difficulty] += 1;
+    return counts;
+  }, { core: 0, advanced: 0, challenge: 0 });
+
   return {
     version: curation.version,
     source: 'Human-curated Gaokao source; ECDICT inflections reviewed through explicit overrides',
     sourceCount: baseWords.length,
+    curatedAdditionCount: curatedEntries.length,
     count: runtimeWords.length,
+    difficultyCounts,
+    totalWeight: Number(runtimeWords.reduce((sum, entry) => sum + entry.weight, 0).toFixed(1)),
     words: runtimeWords,
   };
 }

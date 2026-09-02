@@ -105,15 +105,26 @@ vm.runInNewContext(fs.readFileSync(path.join(APP, 'js/word-data.js'), 'utf8'), w
 });
 const data = wordContext.window.W11_WORD_DATA;
 const words = wordContext.window.W11_WORDS;
-if (!data || !Array.isArray(words) || words.length < 3300 || data.count !== words.length) {
-  throw new Error('Unified vocabulary runtime must contain at least 3300 lexical entries');
+if (!data || !Array.isArray(words) || words.length !== 3500 || data.count !== words.length) {
+  throw new Error('Unified vocabulary runtime must contain exactly 3500 lexical entries');
 }
 if (data.sourceCount !== 3423) {
   throw new Error(`Unexpected source vocabulary record count: ${data.sourceCount}`);
 }
+if (data.curatedAdditionCount !== 101) {
+  throw new Error(`Unexpected curated vocabulary addition count: ${data.curatedAdditionCount}`);
+}
+const expectedDifficultyCounts = { core: 3215, advanced: 144, challenge: 141 };
+for (const [difficulty, expectedCount] of Object.entries(expectedDifficultyCounts)) {
+  if (data.difficultyCounts?.[difficulty] !== expectedCount) {
+    throw new Error(`Unexpected ${difficulty} vocabulary count: ${data.difficultyCounts?.[difficulty]}`);
+  }
+}
 
 const ids = new Set();
 const exactHeadwords = new Set();
+const difficultyCounts = { core: 0, advanced: 0, challenge: 0 };
+let totalWeight = 0;
 for (const [index, word] of words.entries()) {
   if (!word || typeof word.id !== 'string' || !word.id.trim()
     || typeof word.word !== 'string' || !word.word.trim()
@@ -121,6 +132,7 @@ for (const [index, word] of words.entries()) {
     || word.meanings.some((meaning) => typeof meaning !== 'string' || !meaning.trim())
     || !Array.isArray(word.forms) || !Array.isArray(word.family)
     || !Array.isArray(word.phrases) || !Array.isArray(word.confusions)
+    || !Object.hasOwn(difficultyCounts, word.difficulty)
     || typeof word.studyGroupId !== 'string' || !word.studyGroupId.trim()
     || !Number.isFinite(word.weight) || word.weight <= 0) {
     throw new Error(`Invalid unified vocabulary entry at index ${index}`);
@@ -129,6 +141,13 @@ for (const [index, word] of words.entries()) {
   if (exactHeadwords.has(word.word)) throw new Error(`Unmerged exact headword: ${word.word}`);
   ids.add(word.id);
   exactHeadwords.add(word.word);
+  difficultyCounts[word.difficulty] += 1;
+  totalWeight += word.weight;
+
+  const minimumDifficultyWeight = { core: 1, advanced: 3, challenge: 5 }[word.difficulty];
+  if (word.weight < minimumDifficultyWeight) {
+    throw new Error(`Difficulty bonus is missing from vocabulary entry: ${word.id}`);
+  }
 
   for (const form of word.forms) {
     if (!form || typeof form.label !== 'string' || typeof form.value !== 'string'
@@ -156,6 +175,15 @@ for (const [index, word] of words.entries()) {
   for (const confusion of word.confusions) {
     if (typeof confusion !== 'string' || !confusion.trim()) throw new Error(`Invalid confusion in vocabulary entry: ${word.id}`);
   }
+}
+
+for (const [difficulty, expectedCount] of Object.entries(expectedDifficultyCounts)) {
+  if (difficultyCounts[difficulty] !== expectedCount) {
+    throw new Error(`Runtime ${difficulty} count does not match metadata`);
+  }
+}
+if (!Number.isFinite(data.totalWeight) || Math.abs(data.totalWeight - totalWeight) > 1e-9) {
+  throw new Error(`Runtime total weight does not match metadata: ${data.totalWeight} vs ${totalWeight}`);
 }
 
 function entry(displayWord) {
@@ -192,4 +220,12 @@ for (const displayWord of ['abolish', 'ambition', 'detective', 'acquire', 'conse
   }
 }
 
-console.log(`[wallpaper11] Lively project OK: ${Object.keys(properties).length} properties; ${data.sourceCount} source records -> ${words.length} unified lexical entries; every entry has positive draw weight`);
+for (const displayWord of ['hypothesis', 'interpret', 'strategy', 'virtual']) {
+  const reviewed = entry(displayWord);
+  if (!reviewed || reviewed.difficulty !== 'challenge'
+    || reviewed.family.length === 0 || reviewed.phrases.length === 0 || reviewed.weight < 5) {
+    throw new Error(`Qingbei challenge entry is incomplete: ${displayWord}`);
+  }
+}
+
+console.log(`[wallpaper11] Lively project OK: ${Object.keys(properties).length} properties; ${data.sourceCount} source records + ${data.curatedAdditionCount} curated additions -> ${words.length} unified lexical entries; ${difficultyCounts.advanced + difficultyCounts.challenge} advanced/challenge entries; every entry has positive draw weight`);
