@@ -100,3 +100,7 @@ ECDICT 只提供基础变形候选。同形词、大小写不同的 lexical entr
 产物未签名，首次运行若出现 Windows 智能屏幕提示，选择「仍要运行」即可。
 
 媒体文件、Cookie 和 `dist/` 产物不会提交到 Git。项目使用 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 提供网易云连接，词形数据来自 MIT 许可的 [ECDICT](https://github.com/skywind3000/ECDICT)。
+
+## 开源许可
+
+wallpaper11 的自有代码与原创内容采用 [MIT License](LICENSE) 开源。项目引用或随安装流程分发的 Lively Wallpaper、ECDICT、Node.js 及其他第三方组件不因此改变授权，仍分别遵循其原始许可证。

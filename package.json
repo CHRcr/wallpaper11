@@ -2,6 +2,7 @@
   "name": "wallpaper11-lively",
   "private": true,
   "version": "0.2.0",
+  "license": "MIT",
   "scripts": {
     "dev": "node tools/dev-server.js",
     "media": "node tools/prepare-lively-media.js",

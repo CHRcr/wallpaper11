@@ -7,6 +7,8 @@ const { spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const APP = path.join(ROOT, 'app');
+const licenseText = fs.readFileSync(path.join(ROOT, 'LICENSE'), 'utf8');
+const rootPackage = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const required = [
   'index.html',
   'LivelyInfo.json',
@@ -35,6 +37,10 @@ const bridgeSource = fs.readFileSync(path.join(ROOT, 'tools', 'netease-api', 'se
 const cameraProbeSource = fs.readFileSync(path.join(ROOT, 'tools', 'netease-api', 'camera-probe.ps1'), 'utf8');
 if (info.Type !== 1 || info.FileName !== 'index.html') {
   throw new Error('LivelyInfo.json must describe a web wallpaper using index.html');
+}
+if (rootPackage.license !== 'MIT' || info.License !== 'MIT'
+  || !licenseText.startsWith('MIT License\n') || !licenseText.includes('Copyright (c) 2026 CHRcr')) {
+  throw new Error('Project license metadata must match the root MIT license');
 }
 if (!String(info.Arguments || '').includes('--pause-event true')) {
   throw new Error('LivelyInfo.json must enable the Lively pause event');
