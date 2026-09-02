@@ -39,7 +39,7 @@ if (info.Type !== 1 || info.FileName !== 'index.html') {
   throw new Error('LivelyInfo.json must describe a web wallpaper using index.html');
 }
 if (rootPackage.license !== 'MIT' || info.License !== 'MIT'
-  || !licenseText.startsWith('MIT License\n') || !licenseText.includes('Copyright (c) 2026 CHRcr')) {
+  || !/^MIT License\r?\n/.test(licenseText) || !licenseText.includes('Copyright (c) 2026 CHRcr')) {
   throw new Error('Project license metadata must match the root MIT license');
 }
 if (!String(info.Arguments || '').includes('--pause-event true')) {
