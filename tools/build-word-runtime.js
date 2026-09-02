@@ -270,7 +270,11 @@ const payload = compileRuntime();
 const output = serialize(payload);
 
 if (CHECK_ONLY) {
-  const current = fs.existsSync(OUTPUT) ? fs.readFileSync(OUTPUT, 'utf8') : '';
+  // Git for Windows may check text files out with CRLF even though the
+  // deterministic serializer emits LF. Compare logical content, not the
+  // platform-specific working-tree newline representation.
+  const current = fs.existsSync(OUTPUT)
+    ? fs.readFileSync(OUTPUT, 'utf8').replace(/\r\n/g, '\n') : '';
   if (current !== output) {
     throw new Error('app/js/word-data.js is stale; run npm run words:build');
   }
