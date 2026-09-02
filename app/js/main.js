@@ -521,6 +521,8 @@ $('hwClose').addEventListener('click', closeHomework);
 // Esc 关闭（音乐面板的 Esc 由 player.js 自己处理）
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (!toolsMenu.hidden) closeToolsMenu();
+  if (!woodenFishMask.hidden) closeWoodenFish();
   if (!homeworkMask.hidden) closeHomework();
   if (!settingsMask.hidden) closeSettings();
 });
@@ -563,6 +565,119 @@ function cookieParam() {
   if (!c.includes('=')) c = 'MUSIC_U=' + c;   // 只粘贴了 MUSIC_U 的值时自动补全
   return '&cookie=' + encodeURIComponent(c);
 }
+
+/* ---------- 工具菜单 & 电子木鱼 ---------- */
+
+const TOOLS_KEY = 'w11-tools';
+
+function normalizeWoodenFishCount(value) {
+  const count = Number(value);
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
+}
+
+function loadToolState() {
+  const defaults = { woodenFishCount: 0 };
+  try {
+    const raw = localStorage.getItem(TOOLS_KEY);
+    const saved = raw ? JSON.parse(raw) : {};
+    return { ...defaults, ...saved, woodenFishCount: normalizeWoodenFishCount(saved.woodenFishCount) };
+  } catch {
+    return defaults;
+  }
+}
+
+const toolState = loadToolState();
+
+function saveToolState() {
+  try { localStorage.setItem(TOOLS_KEY, JSON.stringify(toolState)); } catch { /* 保留本次会话计数 */ }
+}
+
+const toolsMenu = $('toolsMenu');
+const woodenFishMask = $('woodenFishMask');
+const woodenFishTap = $('woodenFishTap');
+const woodenFishEffects = $('woodenFishEffects');
+const woodenFishCount = $('woodenFishCount');
+let meritLane = 0;
+
+function closeToolsMenu() {
+  if (toolsMenu.hidden) return;
+  toolsMenu.hidden = true;
+  $('btnTools').classList.remove('active');
+  $('btnTools').setAttribute('aria-expanded', 'false');
+}
+
+function openToolsMenu() {
+  closeOtherPanels(toolsMenu);
+  toolsMenu.hidden = false;
+  $('btnTools').classList.add('active');
+  $('btnTools').setAttribute('aria-expanded', 'true');
+}
+
+function renderWoodenFishCount() {
+  const count = normalizeWoodenFishCount(toolState.woodenFishCount);
+  toolState.woodenFishCount = count;
+  woodenFishCount.textContent = count.toLocaleString('zh-CN');
+  woodenFishTap.setAttribute('aria-label', `敲击木鱼，当前功德 ${count}`);
+}
+
+function addMeritEffect() {
+  while (woodenFishEffects.childElementCount >= 6) {
+    woodenFishEffects.firstElementChild.remove();
+  }
+  const effect = document.createElement('span');
+  const lanes = ['43%', '50%', '57%', '47%', '54%'];
+  effect.className = 'wooden-fish-merit';
+  effect.textContent = '功德 +1';
+  effect.style.setProperty('--merit-x', lanes[meritLane % lanes.length]);
+  meritLane += 1;
+  effect.addEventListener('animationend', () => effect.remove(), { once: true });
+  woodenFishEffects.append(effect);
+}
+
+function strikeWoodenFish() {
+  if (toolState.woodenFishCount < Number.MAX_SAFE_INTEGER) {
+    toolState.woodenFishCount += 1;
+  }
+  saveToolState();
+  renderWoodenFishCount();
+  addMeritEffect();
+  if (typeof woodenFishTap.animate === 'function') {
+    woodenFishTap.animate([
+      { transform: 'translateY(0) scale(1)' },
+      { transform: 'translateY(5px) scale(0.94)', offset: 0.34 },
+      { transform: 'translateY(0) scale(1)' },
+    ], { duration: 240, easing: 'cubic-bezier(0.22, 0.61, 0.21, 1)' });
+  }
+}
+
+function openWoodenFish() {
+  closeOtherPanels(woodenFishMask);
+  renderWoodenFishCount();
+  woodenFishMask.hidden = false;
+}
+
+function closeWoodenFish() {
+  if (woodenFishMask.hidden) return;
+  woodenFishMask.hidden = true;
+  woodenFishEffects.replaceChildren();
+}
+
+panelClosers.push({ el: toolsMenu, close: closeToolsMenu });
+panelClosers.push({ el: woodenFishMask, close: closeWoodenFish });
+
+$('btnTools').addEventListener('click', (event) => {
+  event.stopPropagation();
+  if (toolsMenu.hidden) openToolsMenu(); else closeToolsMenu();
+});
+$('btnWoodenFish').addEventListener('click', openWoodenFish);
+$('woodenFishClose').addEventListener('click', closeWoodenFish);
+woodenFishTap.addEventListener('click', strikeWoodenFish);
+woodenFishMask.addEventListener('click', (event) => {
+  if (event.target === woodenFishMask) closeWoodenFish();
+});
+document.addEventListener('click', (event) => {
+  if (!toolsMenu.hidden && !$('toolbar').contains(event.target)) closeToolsMenu();
+});
 
 /* ---------- 工具栏 & 设置面板 ---------- */
 
@@ -1259,6 +1374,7 @@ applyMediaLibrary(window.W11_MEDIA_LIBRARY);
 applyBgMode();
 restartCameraPolling();
 
-// 调试钩子：?hw=1 直接打开作业板（?music=1 由 player.js 处理）
+// 调试钩子：?hw=1 打开作业板，?muyu=1 打开电子木鱼（?music=1 由 player.js 处理）
 const debugParams = new URLSearchParams(location.search);
 if (debugParams.has('hw')) openHomework();
+if (debugParams.has('muyu')) openWoodenFish();

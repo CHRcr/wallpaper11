@@ -129,13 +129,65 @@
       </svg>
       <i class="tb-dot" id="hwDot" hidden></i>
     </button>
+    <button class="tb-btn" id="btnTools" title="工具" aria-haspopup="menu"
+            aria-expanded="false" aria-controls="toolsMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/>
+        <rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/>
+      </svg>
+    </button>
     <button class="tb-btn" id="btnSettings" title="设置">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
     </button>
+    <div class="tools-menu glass-strong" id="toolsMenu" role="menu" aria-label="工具" hidden>
+      <span class="tools-menu-label">工具</span>
+      <button class="tools-menu-item" id="btnWoodenFish" type="button" role="menuitem">
+        <span class="tools-menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 15.5C4.8 9.1 10.2 5 16.2 6.1c3.1.6 5.2 2.8 4.8 5.6-.5 3.8-4.2 6.2-9.4 6.2-3.5 0-6.3-.8-8.1-2.4Z"/>
+            <circle cx="16.7" cy="10.5" r="1"/><path d="M18 14.3c1-.1 1.8-.5 2.6-1.1M6.1 15.8c2.9-1 5.7-1.4 8.5-1.2"/>
+          </svg>
+        </span>
+        <span class="tools-menu-copy"><strong>电子木鱼</strong><small>点击积攒功德</small></span>
+        <svg class="tools-menu-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
   </nav>
+
+  <!-- 工具窗口：电子木鱼 -->
+  <div class="overlay" id="woodenFishMask" hidden>
+    <section class="tool-window wooden-fish-window glass-strong" role="dialog" aria-modal="true"
+             aria-labelledby="woodenFishTitle">
+      <header class="panel-head">
+        <span id="woodenFishTitle">电子木鱼 <small>静心一敲</small></span>
+        <button class="panel-close" id="woodenFishClose" type="button" title="关闭">&#10005;</button>
+      </header>
+      <div class="wooden-fish-content">
+        <div class="wooden-fish-score" aria-live="polite">
+          <span>功德</span>
+          <strong id="woodenFishCount">0</strong>
+        </div>
+        <div class="wooden-fish-stage">
+          <div class="wooden-fish-effects" id="woodenFishEffects" aria-hidden="true"></div>
+          <button class="wooden-fish-tap" id="woodenFishTap" type="button" aria-label="敲击木鱼">
+            <svg viewBox="0 0 320 230" aria-hidden="true">
+              <path class="wooden-fish-shell" d="M31 166C38 116 72 72 121 53c39-15 95-14 132 8 34 20 48 52 39 84-11 40-51 62-112 64-48 1-99-6-132-22-13-6-19-13-17-21Z"/>
+              <path class="wooden-fish-cut" d="M62 172c39-16 83-22 132-18 28 2 54-1 76-12-10 29-44 45-94 47-45 1-86-5-114-17Z"/>
+              <path class="wooden-fish-ridge" d="M122 55c-3 18 5 31 24 41 11 6 14 14 9 24-5 9-3 18 7 28"/>
+              <path class="wooden-fish-detail" d="M78 139c25-15 56-21 92-18M91 113c20-13 44-18 70-16"/>
+              <circle class="wooden-fish-eye" cx="243" cy="105" r="9"/>
+              <circle class="wooden-fish-eye-dot" cx="246" cy="103" r="3"/>
+              <path class="wooden-fish-mouth" d="M260 135c13 1 23-3 31-12"/>
+            </svg>
+          </button>
+        </div>
+        <p class="wooden-fish-hint">点击木鱼</p>
+      </div>
+    </section>
+  </div>
 
   <!-- 设置面板 -->
   <div class="overlay" id="settingsMask" hidden>

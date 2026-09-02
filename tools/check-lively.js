@@ -33,6 +33,7 @@ const wordImporter = fs.readFileSync(path.join(ROOT, 'tools', 'build-gaokao-word
 const html = fs.readFileSync(path.join(APP, 'index.html'), 'utf8');
 const mainSource = fs.readFileSync(path.join(APP, 'js', 'main.js'), 'utf8');
 const playerSource = fs.readFileSync(path.join(APP, 'js', 'player.js'), 'utf8');
+const readmeSource = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
 const bridgeSource = fs.readFileSync(path.join(ROOT, 'tools', 'netease-api', 'server.js'), 'utf8');
 const cameraProbeSource = fs.readFileSync(path.join(ROOT, 'tools', 'netease-api', 'camera-probe.ps1'), 'utf8');
 if (info.Type !== 1 || info.FileName !== 'index.html') {
@@ -76,6 +77,20 @@ for (const control of ['mpResultsPageUp', 'mpResultsPageDown', 'mpListPageUp', '
   if (!html.includes(`id="${control}"`)) {
     throw new Error(`Missing click-based paging control: ${control}`);
   }
+}
+for (const control of ['btnTools', 'toolsMenu', 'btnWoodenFish', 'woodenFishMask', 'woodenFishTap', 'woodenFishCount']) {
+  if (!html.includes(`id="${control}"`)) {
+    throw new Error(`Missing extensible tool-menu control: ${control}`);
+  }
+}
+const woodenFishSource = mainSource.match(/工具菜单 & 电子木鱼([\s\S]*?)工具栏 & 设置面板/)?.[1] || '';
+if (!woodenFishSource.includes("const TOOLS_KEY = 'w11-tools'")
+    || !woodenFishSource.includes('localStorage.setItem(TOOLS_KEY')
+    || /new Audio|\.play\s*\(|setInterval|addEventListener\(\s*['"]key/.test(woodenFishSource)) {
+  throw new Error('The wooden-fish tool must remain click-only, persistent, and silent');
+}
+if (readmeSource.includes('电子木鱼')) {
+  throw new Error('README must keep the small wooden-fish tool out of the public feature list');
 }
 if (!setupInstaller.includes('ExecAndLogOutput') || !setupInstaller.includes('InstallLogMemo')) {
   throw new Error('Unified installer must show subprocess output below its progress bar');

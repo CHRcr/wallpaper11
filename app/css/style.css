@@ -612,6 +612,214 @@ body.hw-open .toolbar { opacity: 0 !important; pointer-events: none; }
   pointer-events: none;
 }
 
+.tb-btn.active {
+  color: var(--ink);
+  background: rgba(255, 235, 210, 0.10);
+}
+
+.tools-menu {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  width: 236px;
+  padding: 10px;
+  border-radius: 18px;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  animation: tools-menu-in 0.2s var(--ease-soft);
+}
+@keyframes tools-menu-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(7px) scale(0.97); }
+}
+
+.tools-menu-label {
+  display: block;
+  padding: 2px 8px 8px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.18em;
+}
+
+.tools-menu-item {
+  width: 100%;
+  min-height: 58px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: rgba(255, 240, 220, 0.045);
+  color: var(--ink-dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s, transform 0.18s var(--ease-soft);
+}
+.tools-menu-item:hover,
+.tools-menu-item:focus-visible {
+  color: var(--ink);
+  border-color: var(--glass-line);
+  background: rgba(255, 240, 220, 0.10);
+  outline: none;
+}
+.tools-menu-item:active { transform: scale(0.98); }
+
+.tools-menu-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--glass-line);
+  border-radius: 12px;
+  color: var(--gold);
+  background: rgba(255, 207, 156, 0.08);
+}
+.tools-menu-icon svg { width: 25px; height: 25px; }
+.tools-menu-copy { min-width: 0; }
+.tools-menu-copy strong {
+  display: block;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+.tools-menu-copy small {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+.tools-menu-arrow { width: 17px; height: 17px; color: var(--ink-faint); }
+
+/* ---------- 工具窗口 ---------- */
+
+.tool-window {
+  width: min(440px, calc(100vw - 32px));
+  height: min(520px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  animation: panel-in 0.32s var(--ease-soft);
+}
+
+.wooden-fish-content {
+  min-height: 0;
+  flex: 1;
+  padding: 24px 28px 22px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.wooden-fish-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.wooden-fish-score span {
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.22em;
+}
+.wooden-fish-score strong {
+  max-width: 100%;
+  color: var(--ink);
+  font: 600 clamp(40px, 7vh, 58px)/1.1 "Bahnschrift", "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wooden-fish-stage {
+  position: relative;
+  width: 100%;
+  min-height: 230px;
+  display: grid;
+  place-items: center;
+}
+
+.wooden-fish-tap {
+  width: min(320px, 86vw);
+  min-height: 230px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transform-origin: 50% 72%;
+  transition: transform 0.13s var(--ease-soft), filter 0.2s;
+}
+.wooden-fish-tap:hover { filter: brightness(1.06); }
+.wooden-fish-tap:active { transform: translateY(5px) scale(0.94); }
+.wooden-fish-tap:focus-visible { outline: 2px solid var(--gold); outline-offset: -4px; border-radius: 36%; }
+.wooden-fish-tap svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 18px 24px rgba(22, 8, 17, 0.34));
+}
+
+.wooden-fish-shell {
+  fill: #a96143;
+  stroke: #e4a66d;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+.wooden-fish-cut { fill: #6e392f; opacity: 0.88; }
+.wooden-fish-ridge,
+.wooden-fish-detail,
+.wooden-fish-mouth {
+  fill: none;
+  stroke: #f0bd82;
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.72;
+}
+.wooden-fish-detail { stroke-width: 4; opacity: 0.44; }
+.wooden-fish-mouth { stroke-width: 5; }
+.wooden-fish-eye { fill: #3a2025; stroke: #efbd82; stroke-width: 3; }
+.wooden-fish-eye-dot { fill: #fff1d6; }
+
+.wooden-fish-effects {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+.wooden-fish-merit {
+  position: absolute;
+  top: 42%;
+  left: var(--merit-x, 50%);
+  color: var(--gold);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-shadow: var(--txt-shadow);
+  white-space: nowrap;
+  animation: wooden-fish-merit 0.9s var(--ease-soft) forwards;
+}
+@keyframes wooden-fish-merit {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(0.92); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -62px) scale(1.03); }
+}
+
+.wooden-fish-hint {
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-align: center;
+}
+
 /* ---------- 设置面板 ---------- */
 
 .overlay {
@@ -1676,6 +1884,10 @@ body.hw-open .toolbar { opacity: 0 !important; pointer-events: none; }
   .mp.drawer-open, .mp.search-open { height: min(520px, calc(100vh - 36px)); }
   .mp-vol-slider { display: none; }
   .panel { max-height: calc(100vh - 24px); }
+  .tool-window { height: min(470px, calc(100vh - 24px)); }
+  .wooden-fish-content { padding: 16px 22px 18px; }
+  .wooden-fish-stage { min-height: 180px; }
+  .wooden-fish-tap { width: min(270px, 78vw); min-height: 180px; }
 }
 
 @media (max-width: 480px) {
@@ -1892,6 +2104,33 @@ html[data-theme="calm"] .toolbar {
   backdrop-filter: blur(10px) saturate(0.85);
   -webkit-backdrop-filter: blur(10px) saturate(0.85);
   opacity: 0.42;
+}
+
+html[data-theme="calm"] .tb-btn.active,
+html[data-theme="calm"] .tools-menu-item:hover,
+html[data-theme="calm"] .tools-menu-item:focus-visible {
+  background: rgba(148, 89, 84, 0.08);
+}
+
+html[data-theme="calm"] .tools-menu-icon {
+  background: rgba(148, 89, 84, 0.06);
+}
+
+html[data-theme="calm"] .tool-window {
+  box-shadow: 0 24px 70px rgba(68, 45, 44, 0.22);
+}
+
+html[data-theme="calm"] .wooden-fish-shell {
+  fill: #9b6250;
+  stroke: #c69076;
+}
+html[data-theme="calm"] .wooden-fish-cut { fill: #65433d; }
+html[data-theme="calm"] .wooden-fish-ridge,
+html[data-theme="calm"] .wooden-fish-detail,
+html[data-theme="calm"] .wooden-fish-mouth { stroke: #d2a286; }
+html[data-theme="calm"] .wooden-fish-eye { fill: #403334; stroke: #d2a286; }
+html[data-theme="calm"] .wooden-fish-tap svg {
+  filter: drop-shadow(0 18px 22px rgba(68, 45, 44, 0.18));
 }
 
 html[data-theme="calm"] .tb-btn:hover,
